@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exambro CBT</title>
+    
+    <!-- Tailwind CSS untuk Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxmQL1jc8li6--zTGFYNalcj16sy5bd2eRVe4N-iN4VLWm5cF4YogPxW2cVlj-sytST/exec';
+
+        const { useState, useEffect, useRef } = React;
+
+        // --- KOMPONEN: LAYAR BERANDA ---
+        const HomeView = ({ setView }) => {
+          const [secretClicks, setSecretClicks] = useState(0);
+
+          const handleSecretClick = () => {
+            const newCount = secretClicks + 1;
+            if (newCount >= 5) {
+              setView('admin');
+              setSecretClicks(0);
+            } else {
+              setSecretClicks(newCount);
+              setTimeout(() => setSecretClicks(0), 2000);
+            }
+          };
+
+          return (
+            <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center space-y-8">
+                <div onClick={handleSecretClick} className="cursor-default select-none group">
+                  <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 group-active:scale-90 transition-transform">
+                    <i className="fa-solid fa-desktop text-blue-600 text-5xl"></i>
+                  </div>
+                  <h1 className="text-3xl font-black text-slate-800 tracking-tight">CBT Exambro</h1>
+                  <p className="text-blue-600 font-bold text-lg mt-1 italic">PENTAS PAI KABUPATEN</p>
+                </div>
+                
+                <button 
+                  onClick={() => setView('student_login')}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg active:scale-95"
+                >
+                  <i className="fa-solid fa-play text-xl"></i>
+                  MULAI UJIAN
+                </button>
+                
+                <p className="text-[10px] text-slate-300 font-mono uppercase tracking-widest">Secure Exam Environment v2.1.5</p>
+              </div>
+            </div>
+          );
+        };
+
+        // --- KOMPONEN: PANEL ADMIN ---
+        const AdminView = ({ settings, setSettings, setView }) => {
+          const [tempSettings, setTempSettings] = useState(settings);
+          const [isSaving, setIsSaving] = useState(false);
+          const [showSuccess, setShowSuccess] = useState(false);
+
+          const handleAddToken = () => {
+            setTempSettings({
+              ...tempSettings,
+              tokens: [...tempSettings.tokens, { title: '', token: '', url: '', duration: 60 }]
+            });
+          };
+
+          const handleTokenChange = (index, field, value) => {
+            const newTokens = [...tempSettings.tokens];
+            newTokens[index][field] = value;
+            setTempSettings({ ...tempSettings, tokens: newTokens });
+          };
+
+          const handleRemoveToken = (index) => {
+            const newTokens = [...tempSettings.tokens];
+            newTokens.splice(index, 1);
+            setTempSettings({ ...tempSettings, tokens: newTokens });
+          };
+
+          const handleSave = async () => {
+            const formatUrl = (url) => {
+              if (!url) return "";
+              if (url.includes('docs.google.com/forms') && !url.includes('embedded=true')) {
+                return url.includes('?') ? url + '&embedded=true' : url + '?embedded=true';
+              }
+              return url;
+            };
+            
+            const formattedTokens = tempSettings.tokens.map(t => ({
+              title: t.title.trim() || 'Ujian CBT Exambro',
+              token: t.token.trim(),
+              url: formatUrl(t.url),
+              duration: parseInt(t.duration) || 60
+            })).filter(t => t.token !== '' && t.url !== '');
+
+            const newSettings = { ...tempSettings, tokens: formattedTokens };
+            setSettings(newSettings);
+            localStorage.setItem('exambro_settings', JSON.stringify(newSettings));
+            
+            if (GOOGLE_SCRIPT_URL !== '') {
+              setIsSaving(true);
+              try {
+                const formData = new URLSearchParams();
+                formData.append('tokensData', JSON.stringify(newSettings.tokens));
+                await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
+                setShowSuccess(true);
+              } catch (err) { alert("Gagal kirim ke Spreadsheet."); }
+              setIsSaving(false);
+              setTimeout(() => setShowSuccess(false), 1500);
+            } else {
+              setShowSuccess(true);
+              setTimeout(() => setShowSuccess(false), 1500);
+            }
+          };
+
+          return (
+            <div className="min-h-screen bg-slate-100 p-4 md:p-8">
+              <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-xl p-6">
+                <div className="flex items-center gap-3 mb-6 border-b pb-4">
+                  <i className="fa-solid fa-gear text-slate-700 text-3xl"></i>
+                  <h2 className="text-2xl font-black text-slate-800">Panel Pengaturan Admin</h2>
+                </div>
+
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mb-6">
+                  {tempSettings.tokens.map((item, index) => (
+                    <div key={index} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 relative">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input className="border p-2 rounded-lg text-sm" value={item.title} onChange={(e) => handleTokenChange(index, 'title', e.target.value)} placeholder="Judul Ujian" />
+                        <input className="border p-2 rounded-lg text-sm uppercase font-mono" value={item.token} onChange={(e) => handleTokenChange(index, 'token', e.target.value)} placeholder="TOKEN" />
+                        <input className="border p-2 rounded-lg text-sm" value={item.url} onChange={(e) => handleTokenChange(index, 'url', e.target.value)} placeholder="Link Google Form" />
+                        <input className="border p-2 rounded-lg text-sm" type="number" value={item.duration} onChange={(e) => handleTokenChange(index, 'duration', e.target.value)} placeholder="Durasi (Menit)" />
+                      </div>
+                      <button onClick={() => handleRemoveToken(index)} className="absolute -top-2 -right-2 bg-red-500 text-white w-8 h-8 rounded-full shadow-lg"><i className="fa-solid fa-trash text-xs"></i></button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button onClick={handleAddToken} className="w-full bg-slate-200 hover:bg-slate-300 py-3 rounded-xl font-bold"><i className="fa-solid fa-plus mr-2"></i>Tambah Baris Baru</button>
+                  <div className="flex gap-3">
+                    <button onClick={handleSave} disabled={isSaving} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg">{isSaving ? 'Menyimpan...' : showSuccess ? 'Berhasil!' : 'Simpan ke Spreadsheet'}</button>
+                    <button onClick={() => setView('home')} className="bg-slate-300 text-slate-800 font-bold px-6 py-4 rounded-2xl hover:bg-slate-400">Keluar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // --- KOMPONEN: LOGIN SISWA ---
+        const StudentLoginView = ({ settings, setSettings, student, setStudent, setExamState, setView }) => {
+          const [isLoading, setIsLoading] = useState(false);
+          const [statusMsg, setStatusMsg] = useState('');
+          const [errorMsg, setErrorMsg] = useState('');
+          const [isTested, setIsTested] = useState(false);
+
+          const playTestSound = () => {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            gain.gain.setValueAtTime(0.5, ctx.currentTime);
+            osc.start();
+            osc.stop(ctx.currentTime + 1);
+            setIsTested(true);
+          };
+
+          const startExam = async () => {
+            if (!student.token) { setErrorMsg("Token harus diisi!"); return; }
+            if (!isTested) { setErrorMsg("Harap Volume HP Perbesar dan Klik Tes Suara terlebih dahulu"); return; }
+            setErrorMsg('');
+            setIsLoading(true);
+
+            let latestTokens = settings.tokens;
+            if (GOOGLE_SCRIPT_URL !== '') {
+              setStatusMsg("Menghubungkan ke server...");
+              try {
+                const response = await fetch(GOOGLE_SCRIPT_URL);
+                const data = await response.json();
+                if (data && data.tokensData) {
+                  let parsed = [];
+                  try { if (data.tokensData !== "undefined") parsed = JSON.parse(data.tokensData); } catch (e) {}
+                  latestTokens = Array.isArray(parsed) ? parsed : [];
+                  setSettings({ tokens: latestTokens });
+                }
+              } catch (e) {}
+            }
+
+            const enteredToken = student.token.trim().toUpperCase();
+            const matchedExam = latestTokens.find(t => t.token.toUpperCase() === enteredToken);
+
+            if (!matchedExam) {
+              setErrorMsg("Token tidak valid!");
+              setIsLoading(false);
+              return;
+            }
+            
+            setStatusMsg("Menyiapkan kamera...");
+            setStudent({ 
+              ...student, 
+              activeUrl: matchedExam.url,
+              activeTitle: matchedExam.title || 'Ujian CBT Exambro',
+              activeDuration: parseInt(matchedExam.duration) || 60
+            });
+
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+              stream.getTracks().forEach(track => track.stop());
+            } catch (err) {
+              setErrorMsg("Kamera WAJIB diizinkan! Anda tidak bisa ikut ujian tanpa izin kamera.");
+              setIsLoading(false);
+              return;
+            }
+
+            try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (err) {}
+
+            setExamState({
+              timeRemaining: (parseInt(matchedExam.duration) || 60) * 60,
+              violations: 0,
+              isWarningOpen: false,
+              warningMessage: ''
+            });
+            setIsLoading(false);
+            setView('exam');
+          };
+
+          return (
+            <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-black text-slate-800">Masuk Ujian</h2>
+                  <p className="text-slate-500">Silakan masukkan kode token Anda</p>
+                </div>
+
+                <div className="space-y-4">
+                  {errorMsg && <div className="bg-red-100 text-red-700 p-3 rounded-xl text-center font-bold text-sm border border-red-200">{errorMsg}</div>}
+                  
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-1 ml-1 tracking-widest">Kode Token</label>
+                    <input 
+                      type="text" 
+                      className="w-full border-2 border-slate-200 rounded-2xl p-4 outline-none focus:border-blue-500 uppercase font-mono text-center text-2xl font-black tracking-[0.5em]"
+                      value={student.token}
+                      onChange={(e) => setStudent({...student, token: e.target.value})}
+                      placeholder=""
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                    <p className="text-sm text-blue-900 font-black mb-3 text-center uppercase tracking-wider">Syarat Mengikuti Ujian:</p>
+                    
+                    <button 
+                      onClick={playTestSound}
+                      className={`w-full py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all ${isTested ? 'bg-green-100 text-green-700 border-2 border-green-500' : 'bg-blue-600 text-white shadow-lg active:scale-95'}`}
+                    >
+                      <i className={`fa-solid ${isTested ? 'fa-circle-check' : 'fa-volume-high'}`}></i>
+                      {isTested ? 'VOLUME SUDAH OK' : 'TES SUARA'}
+                    </button>
+                    
+                    <div className="mt-4 space-y-2 text-left">
+                       <p className="text-[14px] text-red-600 font-black leading-tight text-center">
+                        Pastikan volume HP keras dan Klik TES SUARA sampai terdengar suara.
+                       </p>
+                      <hr className="border-blue-100" />
+                      <div className="flex items-start gap-2">
+                        <i className="fa-solid fa-camera text-blue-600 mt-1 text-[10px]"></i>
+                        <p className="text-[11px] text-blue-800 font-bold leading-tight">Izin Kamera: Berikan izin kamera saat diminta, karena jika tidak diizinkan anda tidak bisa mengikuti ujian.</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <i className="fa-solid fa-triangle-exclamation text-red-500 mt-1 text-[10px]"></i>
+                        <p className="text-[11px] text-blue-800 font-bold leading-tight">
+                          Pelanggaran: Dilarang buka aplikasi lain atau split screen <span className="text-red-600 font-black">(APLIKASI AKAN KELUAR)</span>.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2 flex gap-3">
+                    <button onClick={startExam} disabled={isLoading} className={`flex-1 ${isLoading ? 'bg-slate-400' : 'bg-green-600 hover:bg-green-700'} text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-lg`}>
+                      {isLoading ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-play mr-2"></i>}
+                      {isLoading ? (statusMsg || 'Memproses...') : 'MULAI KERJAKAN'}
+                    </button>
+                    <button onClick={() => setView('home')} className="bg-slate-200 text-slate-700 p-4 rounded-2xl hover:bg-slate-300 transition-all" disabled={isLoading}><i className="fa-solid fa-arrow-left text-xl"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // --- KOMPONEN: INTERFACE UJIAN UTAMA ---
+        const ExamView = ({ student, examState, setExamState, setView }) => {
+          const videoRef = useRef(null);
+          const streamRef = useRef(null);
+          const audioCtxRef = useRef(null);
+          const sirenRef = useRef(null);
+          const isFinishingRef = useRef(false);
+          const initialHeightRef = useRef(window.innerHeight);
+          
+          const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+          const examUrlRef = useRef(student.activeUrl);
+          const [camPos, setCamPos] = useState({ x: 0, y: 0 });
+          const [isDraggingCam, setIsDraggingCam] = useState(false);
+          const dragStart = useRef({ x: 0, y: 0 });
+
+          const initAudio = () => {
+            if (!audioCtxRef.current) {
+              const AudioContext = window.AudioContext || window.webkitAudioContext;
+              audioCtxRef.current = new AudioContext();
+            }
+          };
+
+          const playFinishSound = () => {
+            initAudio();
+            const ctx = audioCtxRef.current;
+            const now = ctx.currentTime;
+            
+            const playNote = (freq, start, duration) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.type = 'sawtooth';
+              gain.gain.setValueAtTime(0, start);
+              gain.gain.linearRampToValueAtTime(0.8, start + 0.05);
+              gain.gain.exponentialRampToValueAtTime(0.01, start + duration);
+              osc.frequency.setValueAtTime(freq, start);
+              osc.start(start);
+              osc.stop(start + duration);
+
+              for(let i=1; i<=3; i++){
+                const eOsc = ctx.createOscillator();
+                const eGain = ctx.createGain();
+                eOsc.connect(eGain); eGain.connect(ctx.destination);
+                eOsc.type = 'sine';
+                eOsc.frequency.setValueAtTime(freq, start + (i * 0.1));
+                eGain.gain.setValueAtTime(0, start + (i * 0.1));
+                eGain.gain.linearRampToValueAtTime(0.3/i, start + (i * 0.1) + 0.05);
+                eGain.gain.exponentialRampToValueAtTime(0.01, start + (i * 0.1) + duration);
+                eOsc.start(start + (i * 0.1)); eOsc.stop(start + (i * 0.1) + duration);
+              }
+            };
+
+            playNote(523.25, now, 1.2);
+            playNote(659.25, now + 0.2, 1.2);
+            playNote(783.99, now + 0.4, 1.5);
+            playNote(1046.50, now + 0.6, 2.0);
+          };
+
+          const playSiren = () => {
+            initAudio();
+            if (sirenRef.current) return;
+            const ctx = audioCtxRef.current;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sawtooth';
+            gain.gain.setValueAtTime(0.5, ctx.currentTime);
+            let i = 0;
+            const intv = setInterval(() => {
+              if (!sirenRef.current) { clearInterval(intv); return; }
+              const freq = 440 + Math.sin(i) * 200;
+              osc.frequency.setTargetAtTime(freq, ctx.currentTime, 0.05);
+              i += 0.5;
+            }, 50);
+            osc.start();
+            sirenRef.current = { osc, gain, interval: intv };
+          };
+
+          const stopSiren = () => {
+            if (sirenRef.current) {
+              try {
+                sirenRef.current.osc.stop();
+                sirenRef.current.osc.disconnect();
+                sirenRef.current.gain.disconnect();
+                clearInterval(sirenRef.current.interval);
+              } catch(e) {}
+              sirenRef.current = null;
+            }
+          };
+
+          useEffect(() => {
+            if (examState.isWarningOpen) playSiren();
+            else stopSiren();
+          }, [examState.isWarningOpen]);
+
+          const handleFinish = () => {
+            isFinishingRef.current = true;
+            stopSiren();
+            playFinishSound();
+            if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+            if (document.exitFullscreen && document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+            setTimeout(() => setView('finished'), 1000);
+          };
+
+          const handleAcknowledgeWarning = () => {
+             const isStillResized = window.innerHeight < (initialHeightRef.current * 0.85);
+             if (isStillResized) {
+               setExamState(prev => ({
+                 ...prev,
+                 warningMessage: "KEMBALI KE SATU LAYAR LAGI"
+               }));
+             } else {
+               setExamState(prev => ({ ...prev, isWarningOpen: false }));
+               if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                  document.documentElement.requestFullscreen().catch(() => {});
+               }
+             }
+          };
+
+          const handleDragStart = (e) => {
+            setIsDraggingCam(true);
+            const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+            dragStart.current = { x: clientX - camPos.x, y: clientY - camPos.y };
+          };
+
+          useEffect(() => {
+            const handleDragMove = (e) => {
+              if (!isDraggingCam) return;
+              const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+              const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+              setCamPos({ x: clientX - dragStart.current.x, y: clientY - dragStart.current.y });
+            };
+            const handleDragEnd = () => setIsDraggingCam(false);
+            if (isDraggingCam) {
+              window.addEventListener('mousemove', handleDragMove);
+              window.addEventListener('mouseup', handleDragEnd);
+              window.addEventListener('touchmove', handleDragMove, { passive: false });
+              window.addEventListener('touchend', handleDragEnd);
+            }
+            return () => {
+              window.removeEventListener('mousemove', handleDragMove);
+              window.removeEventListener('mouseup', handleDragEnd);
+              window.removeEventListener('touchmove', handleDragMove);
+              window.removeEventListener('touchend', handleDragEnd);
+            };
+          }, [isDraggingCam]);
+
+          useEffect(() => {
+            const startCamera = async () => {
+              try {
+                streamRef.current = await navigator.mediaDevices.getUserMedia({ video: true });
+                if (videoRef.current) videoRef.current.srcObject = streamRef.current;
+              } catch (err) {}
+            };
+            startCamera();
+            return () => { if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop()); };
+          }, []);
+
+          useEffect(() => {
+            if (examState.timeRemaining <= 0) { handleFinish(); return; }
+            const timerId = setInterval(() => {
+              setExamState(prev => ({ ...prev, timeRemaining: prev.timeRemaining - 1 }));
+            }, 1000);
+            return () => clearInterval(timerId);
+          }, [examState.timeRemaining]);
+
+          useEffect(() => {
+            const handleSecurity = (e) => {
+              if (isFinishingRef.current) return;
+              const isHidden = document.hidden;
+              const isNotFullscreen = !document.fullscreenElement;
+              const isResized = window.innerHeight < (initialHeightRef.current * 0.85);
+
+              if (isHidden || isNotFullscreen || isResized) {
+                setExamState(prev => {
+                  if (prev.isWarningOpen && !isResized) return prev; 
+                  if (prev.isWarningOpen && isResized) {
+                    return { ...prev, warningMessage: "KEMBALI KE SATU LAYAR LAGI" };
+                  }
+                  if (prev.violations >= 3) return prev;
+                  const newV = prev.violations + 1;
+                  return { 
+                    ...prev, 
+                    violations: newV, 
+                    isWarningOpen: true, 
+                    warningMessage: isResized ? "KEMBALI KE SATU LAYAR LAGI" : `Pelanggaran ${newV}` 
+                  };
+                });
+              }
+            };
+
+            document.addEventListener("visibilitychange", handleSecurity);
+            document.addEventListener("fullscreenchange", handleSecurity);
+            window.addEventListener("resize", handleSecurity);
+            document.addEventListener("contextmenu", e => e.preventDefault());
+            
+            return () => {
+              document.removeEventListener("visibilitychange", handleSecurity);
+              document.removeEventListener("fullscreenchange", handleSecurity);
+              window.removeEventListener("resize", handleSecurity);
+            };
+          }, []);
+
+          const formatTime = (seconds) => {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+          };
+
+          return (
+            <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden relative select-none">
+              
+              {showConfirmDialog && (
+                <div className="absolute inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-md">
+                  <div className="bg-white rounded-3xl p-8 max-sm w-full text-center shadow-2xl border-4 border-red-500 scale-110">
+                    <i className="fa-solid fa-triangle-exclamation text-red-600 text-6xl mb-4 animate-pulse"></i>
+                    <h3 className="text-xl font-black text-red-600 mb-6 uppercase tracking-tight leading-tight">Apakah Anda Sudah Klik KIRIM atau SUBMIT ?</h3>
+                    <div className="flex gap-4">
+                      <button onClick={() => setShowConfirmDialog(false)} className="flex-1 bg-slate-200 py-3 rounded-2xl font-black uppercase text-sm">BELUM</button>
+                      <button onClick={handleFinish} className="flex-1 bg-red-600 text-white py-3 rounded-2xl font-black shadow-lg uppercase text-sm">SUDAH</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {examState.isWarningOpen && (
+                <div className="absolute inset-0 z-50 bg-red-600 flex items-center justify-center p-4 text-white text-center">
+                  <div className="max-w-md bg-white p-8 rounded-3xl shadow-2xl text-slate-800 border-[10px] border-red-500">
+                    <i className="fa-solid fa-triangle-exclamation text-red-600 text-8xl mb-4 animate-bounce"></i>
+                    <h2 className="text-5xl font-black mb-2 text-red-600 uppercase leading-tight">{examState.warningMessage}</h2>
+                    <p className="text-slate-600 mb-6 font-bold text-xl">Anda terdeteksi melakukan pelanggaran ujian!</p>
+                    <button onClick={examState.violations >= 3 ? handleFinish : handleAcknowledgeWarning} className="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-2xl shadow-xl active:scale-95 transition-all">
+                      {examState.violations >= 3 ? 'KUMPULKAN SEKARANG' : 'SAYA MENGERTI'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <header className="bg-white shadow-md z-10 px-6 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-xl font-black text-2xl border-2 border-blue-200">{formatTime(examState.timeRemaining)}</div>
+                  <h1 className="font-black text-slate-800 text-lg uppercase tracking-tight truncate max-w-[150px] md:max-w-none">{student.activeTitle}</h1>
+                </div>
+                <button onClick={() => setShowConfirmDialog(true)} className="bg-green-600 text-white px-6 py-2 rounded-xl font-black shadow-md hover:bg-green-700 active:scale-95 transition-all">SELESAI</button>
+              </header>
+
+              <main className="flex-1 relative bg-slate-200 p-2">
+                <iframe src={examUrlRef.current} className="w-full h-full border-0 rounded-2xl bg-white shadow-2xl"></iframe>
+                <div 
+                  className="absolute top-4 right-6 w-32 h-24 bg-black rounded-2xl shadow-2xl border-4 border-slate-700 overflow-hidden z-[100] cursor-move flex items-center justify-center"
+                  style={{ transform: `translate(${camPos.x}px, ${camPos.y}px)`, touchAction: 'none' }}
+                  onMouseDown={handleDragStart} onTouchStart={handleDragStart}
+                >
+                   <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover transform scale-x-[-1] pointer-events-none" />
+                </div>
+              </main>
+            </div>
+          );
+        };
+
+        const FinishedView = () => (
+          <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 text-center">
+            <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full">
+              <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i className="fa-solid fa-circle-check text-green-600 text-6xl"></i>
+              </div>
+              <h2 className="text-3xl font-black text-slate-800 mb-2">Ujian Selesai!</h2>
+              <p className="text-slate-600 mb-10 font-medium">Terima kasih, lembar jawaban Anda telah berhasil kami simpan.</p>
+              <button 
+                onClick={() => {
+                  window.close();
+                  setTimeout(() => { window.location.href = "about:blank"; }, 100);
+                }} 
+                className="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all"
+              >
+                Keluar Aplikasi
+              </button>
+            </div>
+          </div>
+        );
+
+        function App() {
+          const [view, setView] = useState('home'); 
+          const [settings, setSettings] = useState({ tokens: [] });
+          const [student, setStudent] = useState({ token: '', activeUrl: '', activeTitle: '', activeDuration: 60 });
+          const [examState, setExamState] = useState({ timeRemaining: 0, violations: 0, isWarningOpen: false, warningMessage: '' });
+
+          useEffect(() => {
+            const initSettings = async () => {
+              if (GOOGLE_SCRIPT_URL !== '') {
+                try {
+                  const response = await fetch(GOOGLE_SCRIPT_URL);
+                  const data = await response.json();
+                  if (data && data.tokensData) {
+                    let parsed = [];
+                    try { if (data.tokensData !== "undefined" && data.tokensData !== "null") parsed = JSON.parse(data.tokensData); } catch (e) {}
+                    setSettings({ tokens: Array.isArray(parsed) ? parsed : [] });
+                  }
+                } catch (e) {}
+              }
+            };
+            initSettings();
+          }, []);
+
+          switch (view) {
+            case 'admin': return <AdminView settings={settings} setSettings={setSettings} setView={setView} />;
+            case 'student_login': return <StudentLoginView settings={settings} setSettings={setSettings} student={student} setStudent={setStudent} setExamState={setExamState} setView={setView} />;
+            case 'exam': return <ExamView student={student} examState={examState} setExamState={setExamState} setView={setView} />;
+            case 'finished': return <FinishedView />;
+            default: return <HomeView setView={setView} />;
+          }
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
