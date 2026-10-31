@@ -496,6 +496,23 @@
         };
 
         window.setKehadiranKelas = function(val, btnId) {
+            // Validasi: Guru harus sudah absen Harian = 'Hadir' untuk bisa klik Hadir di kelas
+            if (val === 'Hadir') {
+                const date = document.getElementById('ket-date').value;
+                const name = document.getElementById('ket-name').value;
+                
+                if (!date || !name) {
+                    showModal("Peringatan", "Silakan pilih Tanggal dan Nama Guru terlebih dahulu.");
+                    return;
+                }
+
+                const record = allAttendanceData.find(d => d.date === date && d.name === name);
+                if (!record || record.statusHarian !== 'Hadir') {
+                    showModal("Akses Ditolak", "Anda tidak dapat memilih 'Hadir' di kelas karena Anda belum mengisi Absensi Harian atau berstatus Izin/Sakit hari ini.");
+                    return;
+                }
+            }
+
             document.getElementById('form-kehadiran-kelas').value = val;
             
             // Reset styles
@@ -1295,6 +1312,15 @@
             if (!date || !name || !mapel || !kelas || !jamKe || !tercapai || !kehadiranKelas) {
                 showModal("Peringatan", "Mohon lengkapi semua data (Mata Pelajaran, Kehadiran di Kelas, Kelas, Jam Ke-, dan Ketercapaian) sebelum menyimpan.");
                 return;
+            }
+
+            // Validasi tambahan sebelum simpan: Cek ulang izin klik Hadir
+            if (kehadiranKelas === 'Hadir') {
+                const record = allAttendanceData.find(d => d.date === date && d.name === name);
+                if (!record || record.statusHarian !== 'Hadir') {
+                    showModal("Tidak Diizinkan", "Data gagal disimpan. Guru belum mengisi Absensi Harian atau berstatus Izin/Sakit.");
+                    return;
+                }
             }
 
             const submitBtn = e.target.querySelector('button[type="submit"]');
