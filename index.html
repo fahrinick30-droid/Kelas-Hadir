@@ -1275,6 +1275,23 @@
                 });
                 // ----------------------------------------------
 
+                // OPTIMISTIC UPDATE: Perbarui memori lokal instan agar guru bisa langsung klik "Hadir" di kelas
+                let existingRecord = allAttendanceData.find(d => d.date === date && d.name === name);
+                if (existingRecord) {
+                    existingRecord.statusHarian = statusHarian;
+                    if (jamMasuk) existingRecord.jamMasuk = jamMasuk;
+                    if (jamPulang) existingRecord.jamPulang = jamPulang;
+                } else {
+                    allAttendanceData.push({
+                        date: date,
+                        name: name,
+                        statusHarian: statusHarian,
+                        jamMasuk: jamMasuk || '',
+                        jamPulang: jamPulang || '',
+                        sessions: []
+                    });
+                }
+
                 const msgBox = document.getElementById('form-message');
                 msgBox.innerText = "Jam kehadiran berhasil disimpan!";
                 msgBox.classList.remove('hidden', 'bg-red-100', 'text-red-700');
