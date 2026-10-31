@@ -39,7 +39,7 @@
         <div class="max-w-7xl mx-auto flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <div class="bg-white p-1 rounded-full flex-shrink-0">
-                    <img id="header-logo" src="SMPN 1 Situraja.jpg" alt="Logo SMPN 1 Situraja" class="w-10 h-10 object-contain rounded-full">
+                    <img id="header-logo" src="https://placehold.co/200x200/2563eb/ffffff?text=Logo" alt="Logo SMPN 1 Situraja" class="w-10 h-10 object-contain rounded-full">
                 </div>
                 <div>
                     <h1 class="text-xl font-bold">SMP NEGERI 1 SITURAJA</h1>
@@ -185,11 +185,11 @@
             <form id="ketuntasan-form" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
-                    <input type="date" id="ket-date" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <input type="date" id="ket-date" onchange="updateAvailableJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nama Guru / Staf</label>
-                    <select id="ket-name" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <select id="ket-name" onchange="updateAvailableJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                         <option value="">-- Pilih Nama --</option>
                         <!-- Options populated via JS -->
                     </select>
@@ -197,7 +197,7 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Mata Pelajaran</label>
-                    <select id="form-mapel" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <select id="form-mapel" onchange="updateAvailableJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                         <option value="">-- Pilih Mata Pelajaran --</option>
                         <!-- Options populated via JS -->
                     </select>
@@ -337,7 +337,7 @@
                         <button onclick="resetLogo()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">Kembalikan ke Bawaan</button>
                     </div>
                     <div class="mt-3 flex-grow flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-white overflow-hidden p-2">
-                        <img src="SMPN 1 Situraja.jpg" id="admin-preview-logo" class="max-w-full max-h-full object-contain">
+                        <img src="https://placehold.co/200x200/2563eb/ffffff?text=Logo" id="admin-preview-logo" class="max-w-full max-h-full object-contain">
                     </div>
                 </div>
 
@@ -384,7 +384,7 @@
                 <div id="pdf-content" class="bg-white">
                     <!-- Header khusus untuk hasil PDF -->
                     <div id="pdf-header" class="text-center mb-6 pt-2 hidden">
-                        <img id="pdf-logo" src="SMPN 1 Situraja.jpg" alt="Logo Laporan" class="w-20 h-20 mx-auto mb-3 object-contain">
+                        <img id="pdf-logo" src="https://placehold.co/200x200/2563eb/ffffff?text=Logo" alt="Logo Laporan" class="w-20 h-20 mx-auto mb-3 object-contain">
                         <h2 class="text-xl font-bold uppercase text-gray-900">Laporan Rekapitulasi Kehadiran</h2>
                         <h3 class="text-lg font-bold uppercase text-gray-800">SMP Negeri 1 Situraja</h3>
                         <p class="text-sm mt-2 font-medium text-gray-700">Periode: <span id="print-date"></span></p>
@@ -542,6 +542,51 @@
             });
         };
 
+        window.updateAvailableJamKe = function() {
+            const date = document.getElementById('ket-date').value;
+            const name = document.getElementById('ket-name').value;
+            const mapel = document.getElementById('form-mapel').value;
+            const jamKeSelect = document.getElementById('form-jam-ke');
+
+            if (!jamKeSelect) return;
+
+            // 1. Reset ulang semua pilihan (aktifkan semua kembali)
+            Array.from(jamKeSelect.options).forEach(opt => {
+                if (opt.value !== "") {
+                    opt.disabled = false;
+                    opt.text = opt.value; // Kembalikan teks ke nilai aslinya
+                    opt.classList.remove('bg-gray-100', 'text-gray-400');
+                }
+            });
+
+            // 2. Jika salah satu dari Tanggal, Nama, atau Mapel belum diisi, hentikan (semua jam tersedia)
+            if (!date || !name || !mapel) return;
+
+            // 3. Cari riwayat di tanggal dan nama tersebut
+            const record = allAttendanceData.find(d => d.date === date && d.name === name);
+            
+            if (record && record.sessions) {
+                // Temukan jam ke- berapa saja yang sudah dipakai untuk MAPEL ini
+                const usedJamKe = record.sessions
+                    .filter(s => s.mapel === mapel)
+                    .map(s => s.jamKe);
+
+                // 4. Kunci opsi jam ke- yang sudah dipakai
+                Array.from(jamKeSelect.options).forEach(opt => {
+                    if (usedJamKe.includes(opt.value)) {
+                        opt.disabled = true;
+                        opt.text = `${opt.value} (Terpakai)`;
+                        opt.classList.add('bg-gray-100', 'text-gray-400'); // Efek visual dinonaktifkan
+                    }
+                });
+
+                // Kosongkan nilai dropdown jika opsi yang saat ini sedang dipilih tiba-tiba menjadi disabled
+                if (jamKeSelect.selectedIndex >= 0 && jamKeSelect.options[jamKeSelect.selectedIndex].disabled) {
+                    jamKeSelect.value = "";
+                }
+            }
+        };
+
         // === UI Management ===
         window.showView = function(viewId) {
             document.getElementById('loading-view').classList.add('hidden');
@@ -612,7 +657,7 @@
 
         window.resetLogo = function() {
             localStorage.removeItem('appLogo');
-            updateAllLogos('SMPN 1 Situraja.jpg');
+            updateAllLogos('https://placehold.co/200x200/2563eb/ffffff?text=Logo');
             showModal("Sukses", "Logo dikembalikan ke gambar bawaan.");
         };
 
@@ -670,6 +715,11 @@
                 opt.text = j;
                 jamkeSelect.appendChild(opt);
             });
+            
+            // Perbarui ketersediaan jam ke-
+            if(typeof window.updateAvailableJamKe === 'function') {
+                window.updateAvailableJamKe();
+            }
         }
 
         // Set default dates
@@ -929,6 +979,7 @@
                     }
                     
                     renderMonitorTable();
+                    if(typeof window.updateAvailableJamKe === 'function') window.updateAvailableJamKe();
                 }
             } catch (e) {
                 console.error("Gagal menarik data absensi dari Spreadsheet:", e);
@@ -1109,6 +1160,7 @@
                 if (!document.getElementById('monitor-view').classList.contains('hidden')) {
                     renderMonitorTable();
                 }
+                if(typeof window.updateAvailableJamKe === 'function') window.updateAvailableJamKe();
             }, (error) => {
                 console.error("Firestore Listen Error:", error);
             });
