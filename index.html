@@ -256,10 +256,20 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Jam Ke-</label>
-                    <select id="form-jam-ke" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                        <option value="">-- Pilih Jam --</option>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Jam Pelajaran (Otomatis Sesuai Real-Time)</label>
+                    <select id="form-durasi-jam" onchange="calculateAutoJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">-- Pilih Jumlah Jam --</option>
+                        <option value="1">1 Jam Pelajaran (40 Menit)</option>
+                        <option value="2">2 Jam Pelajaran (80 Menit)</option>
+                        <option value="3">3 Jam Pelajaran (120 Menit)</option>
+                        <option value="4">4 Jam Pelajaran (160 Menit)</option>
+                        <option value="5">5 Jam Pelajaran (200 Menit)</option>
                     </select>
+                    <input type="hidden" id="form-jam-ke" value="">
+                    <div id="auto-jam-preview" class="hidden mt-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs sm:text-sm text-blue-800 font-semibold flex items-center justify-between">
+                        <span id="auto-jam-label">Jam Ke: -</span>
+                        <span id="auto-jam-time" class="font-mono bg-blue-100 px-2 py-0.5 rounded text-blue-900">07:00 - 07:40</span>
+                    </div>
                     <input type="hidden" id="form-tercapai" value="Y">
                 </div>
 
@@ -546,26 +556,19 @@
             const mapel = document.getElementById('form-mapel').value;
             const tingkat = document.getElementById('form-tingkat').value;
             const kelas = document.getElementById('form-kelas').value;
+            const durasiJam = document.getElementById('form-durasi-jam').value;
             const jamKe = document.getElementById('form-jam-ke').value;
 
-            if (!date || !name || !mapel || !tingkat || !kelas || !jamKe) {
-                showModal("Data Belum Lengkap", "Silakan lengkapi semua data di atas (Tanggal, Nama, Mata Pelajaran, Tingkat, Kelas, dan Jam Ke-) terlebih dahulu sebelum memilih status kehadiran.");
+            if (!date || !name || !mapel || !tingkat || !kelas || !durasiJam || !jamKe) {
+                showModal("Data Belum Lengkap", "Silakan lengkapi semua data di atas (Tanggal, Nama, Mata Pelajaran, Tingkat, Kelas, dan Jumlah Jam Pelajaran) terlebih dahulu sebelum memilih status kehadiran.");
                 return false;
             }
             return true;
         }
 
-        window.handleKehadiranKelasClick = function(val, btnId) {
-            if (!isKetuntasanFieldsComplete()) return;
-            setKehadiranKelas(val, btnId);
-            saveKetuntasanData();
-        };
-
         window.handleHadirClick = function(target) {
-            // Validasi awal sebelum buka kamera
             if (target === 'kelas') {
                 if (!isKetuntasanFieldsComplete()) return;
-
                 const date = document.getElementById('ket-date').value;
                 const name = document.getElementById('ket-name').value;
                 const record = allAttendanceData.find(d => d.date === date && d.name === name);
@@ -577,33 +580,115 @@
             openCamera(target);
         };
 
+        window.handleKehadiranKelasClick = async function(val, btnId) {
+            if (!isKetuntasanFieldsComplete()) return;
+            setKehadiranKelas(val, btnId);
+            await saveKetuntasanData();
+        };
+
         window.setStatusHarian = function(status, btnId) {
             document.getElementById('form-status-kehadiran').value = status;
             
-            // Reset styles
             const btnHadirHarian = document.getElementById('btn-status-hadir');
             btnHadirHarian.className = "border-2 border-gray-800 text-gray-800 hover:bg-gray-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
             btnHadirHarian.innerText = "Hadir";
             document.getElementById('btn-status-izin').className = "border-2 border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
             document.getElementById('btn-status-sakit').className = "border-2 border-orange-500 text-orange-600 hover:bg-orange-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
 
-            // Set active style
             if (status === 'Hadir') {
-                const hasPhoto = document.getElementById('form-photo-harian').value !== '';
-                if (hasPhoto) {
-                    btnHadirHarian.className = "bg-green-600 text-white border-2 border-green-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
-                    btnHadirHarian.innerText = "Hadir ✓";
-                } else {
-                    btnHadirHarian.className = "bg-gray-800 text-white border-2 border-gray-800 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
-                }
+                btnHadirHarian.className = "bg-green-600 text-white border-2 border-green-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+                btnHadirHarian.innerText = "Hadir ✓";
             } else if (status === 'Izin') {
                 document.getElementById('btn-status-izin').className = "bg-purple-600 text-white border-2 border-purple-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
-                document.getElementById('form-photo-harian').value = ''; // Reset foto jika izin/sakit
+                document.getElementById('form-photo-harian').value = '';
                 document.getElementById('photo-indicator-harian').classList.add('hidden');
             } else if (status === 'Sakit') {
                 document.getElementById('btn-status-sakit').className = "bg-orange-500 text-white border-2 border-orange-500 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
-                document.getElementById('form-photo-harian').value = ''; // Reset foto jika izin/sakit
+                document.getElementById('form-photo-harian').value = '';
                 document.getElementById('photo-indicator-harian').classList.add('hidden');
+            }
+        };
+
+        // Helper format menit dari 00:00 ke HH:MM
+        function formatMinutesToHHMM(totalMinutes) {
+            const h = Math.floor(totalMinutes / 60) % 24;
+            const m = totalMinutes % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        // Hitung Jam Ke- Otomatis berdasarkan Real-Time (Mulai 07:00, 40 menit per jam)
+        window.calculateAutoJamKe = function() {
+            const durasiSelect = document.getElementById('form-durasi-jam');
+            const jamKeInput = document.getElementById('form-jam-ke');
+            const previewBox = document.getElementById('auto-jam-preview');
+            const labelEl = document.getElementById('auto-jam-label');
+            const timeEl = document.getElementById('auto-jam-time');
+
+            if (!durasiSelect || !jamKeInput) return;
+
+            const durasi = parseInt(durasiSelect.value, 10);
+            if (!durasi || isNaN(durasi)) {
+                jamKeInput.value = "";
+                if (previewBox) previewBox.classList.add('hidden');
+                return;
+            }
+
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            // Khusus hari Jum'at (getDay() === 5) mulai pukul 07:10 (430 menit), hari lain pukul 07:00 (420 menit)
+            const isFriday = now.getDay() === 5;
+            const startSchoolMinutes = isFriday ? (7 * 60 + 10) : (7 * 60);
+
+            // Tentukan jam ke- awal berdasarkan waktu sekarang
+            // Jika sebelum jam masuk pertama, otomatis dianggap mulai jam ke-1
+            let startPeriod = 1;
+            if (currentMinutes >= startSchoolMinutes) {
+                startPeriod = Math.floor((currentMinutes - startSchoolMinutes) / 40) + 1;
+            }
+
+            // Cek riwayat guru hari ini agar tidak bentrok dengan jam yang sudah terpakai
+            const date = document.getElementById('ket-date').value;
+            const name = document.getElementById('ket-name').value;
+            let maxUsedJam = 0;
+            if (date && name) {
+                const record = allAttendanceData.find(d => d.date === date && d.name === name);
+                if (record && record.sessions && record.sessions.length > 0) {
+                    record.sessions.forEach(s => {
+                        const nums = String(s.jamKe).match(/\d+/g);
+                        if (nums && nums.length > 0) {
+                            const maxVal = Math.max(...nums.map(Number));
+                            if (maxVal > maxUsedJam) maxUsedJam = maxVal;
+                        }
+                    });
+                }
+            }
+
+            // Jika jam ke- saat ini sudah terpakai/lewat oleh guru bersangkutan, geser ke jam berikutnya
+            if (startPeriod <= maxUsedJam) {
+                startPeriod = maxUsedJam + 1;
+            }
+
+            const endPeriod = startPeriod + durasi - 1;
+            const periodStartMin = startSchoolMinutes + (startPeriod - 1) * 40;
+            const periodEndMin = periodStartMin + durasi * 40;
+
+            const rangeJamLabel = durasi === 1 ? `${startPeriod}` : `${startPeriod}-${endPeriod}`;
+            const rangeTimeStr = `${formatMinutesToHHMM(periodStartMin)}-${formatMinutesToHHMM(periodEndMin)}`;
+
+            // Format yang disimpan ke sistem & Spreadsheet: misal "1-2 (07:10-08:30)" pada hari Jum'at
+            jamKeInput.value = `${rangeJamLabel} (${rangeTimeStr})`;
+
+            if (previewBox && labelEl && timeEl) {
+                labelEl.innerText = `Jam Ke-${rangeJamLabel}${isFriday ? ' (Jadwal Jum\'at)' : ''}`;
+                timeEl.innerText = `Pukul ${rangeTimeStr} WIB`;
+                previewBox.classList.remove('hidden');
+            }
+        };
+
+        window.updateAvailableJamKe = function() {
+            // Hitung ulang otomatis setiap kali Tanggal atau Nama Guru berubah
+            if (typeof window.calculateAutoJamKe === 'function') {
+                window.calculateAutoJamKe();
             }
         };
 
@@ -659,64 +744,6 @@
                 opt.text = k;
                 kelasSelect.appendChild(opt);
             });
-        };
-
-        window.updateAvailableJamKe = function() {
-            const date = document.getElementById('ket-date').value;
-            const name = document.getElementById('ket-name').value;
-            const jamKeSelect = document.getElementById('form-jam-ke');
-
-            if (!jamKeSelect) return;
-
-            // Helper untuk mengambil angka jam tertinggi dari string (misal "5-6" -> 6, "3" -> 3)
-            const getMaxJam = (str) => {
-                const nums = String(str).match(/\d+/g);
-                if (!nums || nums.length === 0) return 0;
-                return Math.max(...nums.map(Number));
-            };
-
-            // 1. Reset ulang semua pilihan (aktifkan semua kembali)
-            Array.from(jamKeSelect.options).forEach(opt => {
-                if (opt.value !== "") {
-                    opt.disabled = false;
-                    opt.text = opt.value; // Kembalikan teks ke nilai aslinya
-                    opt.classList.remove('bg-gray-100', 'text-gray-400');
-                }
-            });
-
-            // 2. Jika Tanggal atau Nama belum diisi, hentikan (semua jam tersedia)
-            if (!date || !name) return;
-
-            // 3. Cari riwayat di tanggal dan nama tersebut
-            const record = allAttendanceData.find(d => d.date === date && d.name === name);
-            
-            if (record && record.sessions && record.sessions.length > 0) {
-                // Cari jam tertinggi yang sudah diisi guru pada hari tersebut
-                let maxUsedJam = 0;
-                record.sessions.forEach(s => {
-                    const jamVal = getMaxJam(s.jamKe);
-                    if (jamVal > maxUsedJam) {
-                        maxUsedJam = jamVal;
-                    }
-                });
-
-                // 4. Kunci semua opsi jam ke- yang nilainya <= maxUsedJam (misal 5-6 dipakai -> 1 s/d 6 terkunci)
-                Array.from(jamKeSelect.options).forEach(opt => {
-                    if (opt.value !== "") {
-                        const optMaxJam = getMaxJam(opt.value);
-                        if (optMaxJam > 0 && optMaxJam <= maxUsedJam) {
-                            opt.disabled = true;
-                            opt.text = `${opt.value} (Sudah Lewat / Terpakai)`;
-                            opt.classList.add('bg-gray-100', 'text-gray-400');
-                        }
-                    }
-                });
-
-                // Kosongkan nilai dropdown jika opsi yang saat ini sedang dipilih menjadi disabled
-                if (jamKeSelect.selectedIndex >= 0 && jamKeSelect.options[jamKeSelect.selectedIndex].disabled) {
-                    jamKeSelect.value = "";
-                }
-            }
         };
 
         // === UI Management ===
@@ -952,19 +979,9 @@
                 window.filterKelas();
             }
 
-            // JamKe select
-            const jamkeSelect = document.getElementById('form-jam-ke');
-            jamkeSelect.innerHTML = '<option value="">-- Pilih Jam --</option>';
-            daftarJamKe.forEach(j => {
-                const opt = document.createElement('option');
-                opt.value = j;
-                opt.text = j;
-                jamkeSelect.appendChild(opt);
-            });
-            
-            // Perbarui ketersediaan jam ke-
-            if(typeof window.updateAvailableJamKe === 'function') {
-                window.updateAvailableJamKe();
+            // JamKe select (Sekarang menggunakan durasi otomatis, cukup hitung ulang preview)
+            if (typeof window.calculateAutoJamKe === 'function') {
+                window.calculateAutoJamKe();
             }
         }
 
@@ -1711,7 +1728,9 @@
                 document.getElementById('form-mapel').value = "";
                 document.getElementById('form-tingkat').value = "";
                 document.getElementById('form-kelas').value = "";
+                document.getElementById('form-durasi-jam').value = "";
                 document.getElementById('form-jam-ke').value = "";
+                document.getElementById('auto-jam-preview').classList.add('hidden');
                 document.getElementById('form-tercapai').value = "Y";
                 document.getElementById('ket-name').value = "";
                 
