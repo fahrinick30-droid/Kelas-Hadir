@@ -276,12 +276,6 @@
                         <button type="button" onclick="handleHadirClick('kelas')" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline px-2 py-1">Foto Ulang</button>
                     </div>
                 </div>
-
-                <div class="pt-4 border-t mt-6">
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow transition-colors">
-                        Simpan Data Ketuntasan
-                    </button>
-                </div>
                 
                 <div id="ket-message" class="hidden p-3 rounded-lg text-sm text-center font-medium mt-2"></div>
             </form>
@@ -478,6 +472,17 @@
         </div>
     </div>
 
+    <!-- Done Overlay Modal (Tengah Layar) -->
+    <div id="done-overlay" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-xs w-full mx-4 shadow-2xl flex flex-col items-center justify-center text-center transform transition-all">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h2 class="text-3xl font-extrabold text-gray-900 tracking-wide">Done</h2>
+            <p class="text-sm text-gray-500 mt-1">Data berhasil tersimpan</p>
+        </div>
+    </div>
+
     <!-- Camera Modal -->
     <div id="camera-modal" class="fixed inset-0 bg-black flex flex-col z-[60] hidden">
         <div class="p-4 flex justify-between items-center bg-gray-900 text-white">
@@ -492,7 +497,7 @@
             <p id="camera-status" class="text-yellow-400 text-sm font-medium mb-4 text-center">Menyiapkan kamera...</p>
             <button id="btn-capture" onclick="capturePhoto()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-transform transform active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                <span>Jepret & Verifikasi</span>
+                <span>Ambil Foto Selfie dan Siswa</span>
             </button>
         </div>
     </div>
@@ -543,6 +548,7 @@
         window.handleKehadiranKelasClick = function(val, btnId) {
             if (!isKetuntasanFieldsComplete()) return;
             setKehadiranKelas(val, btnId);
+            saveKetuntasanData();
         };
 
         window.handleHadirClick = function(target) {
@@ -812,14 +818,24 @@
                 document.getElementById('thumb-photo-harian').src = base64Photo;
                 document.getElementById('photo-indicator-harian').classList.remove('hidden');
                 setStatusHarian('Hadir', 'btn-status-hadir');
+                closeCamera();
+                showDoneOverlay();
             } else if (currentPhotoTarget === 'kelas') {
                 document.getElementById('form-photo-kelas').value = base64Photo;
                 document.getElementById('thumb-photo-kelas').src = base64Photo;
                 document.getElementById('photo-indicator-kelas').classList.remove('hidden');
                 setKehadiranKelas('Hadir', 'btn-hadir');
+                closeCamera();
+                await saveKetuntasanData();
             }
+        };
 
-            closeCamera();
+        window.showDoneOverlay = function() {
+            const overlay = document.getElementById('done-overlay');
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+            }, 2000);
         };
 
         // --- Edit Modal Management ---
@@ -1531,9 +1547,7 @@
         });
 
         // === Ketuntasan Form Submission ===
-        document.getElementById('ketuntasan-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
+        window.saveKetuntasanData = async function() {
             const date = document.getElementById('ket-date').value;
             const name = document.getElementById('ket-name').value;
             const mapel = document.getElementById('form-mapel').value.trim();
@@ -1562,10 +1576,11 @@
                 }
             }
 
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
-            submitBtn.innerText = "Menyimpan...";
+            // Tampilkan status sedang menyimpan di kotak pesan sementara
+            const msgBox = document.getElementById('ket-message');
+            msgBox.innerText = "Menyimpan data ketuntasan...";
+            msgBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+            msgBox.classList.add('bg-blue-100', 'text-blue-700');
 
             const sessionData = {
                 mapel: mapel,
@@ -1606,10 +1621,8 @@
                 });
                 // ----------------------------------------------
 
-                const msgBox = document.getElementById('ket-message');
-                msgBox.innerText = "Data ketuntasan berhasil disimpan!";
-                msgBox.classList.remove('hidden', 'bg-red-100', 'text-red-700');
-                msgBox.classList.add('bg-green-100', 'text-green-700');
+                msgBox.classList.add('hidden');
+                showDoneOverlay();
                 
                 document.getElementById('form-mapel').value = "";
                 document.getElementById('form-tingkat').value = "";
@@ -1628,16 +1641,16 @@
                 btnHadirReset.innerText = "Hadir";
                 document.getElementById('btn-tugas').className = "border-2 border-yellow-500 text-yellow-600 rounded-lg p-2 font-semibold hover:bg-yellow-50 transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight";
                 document.getElementById('btn-alpa').className = "border-2 border-red-500 text-red-600 rounded-lg p-2 font-semibold hover:bg-red-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full";
-
-                setTimeout(() => { msgBox.classList.add('hidden'); }, 3000);
             } catch (error) {
                 console.error("Save Error:", error);
+                msgBox.classList.add('hidden');
                 showModal("Gagal Menyimpan", "Terjadi kesalahan saat menyimpan data. Periksa koneksi internet.");
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-                submitBtn.innerText = "Simpan Data Ketuntasan";
             }
+        };
+
+        document.getElementById('ketuntasan-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveKetuntasanData();
         });
 
         // === Monitor Logic (Spreadsheet Render) ===
