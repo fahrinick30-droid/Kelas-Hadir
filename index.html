@@ -224,9 +224,13 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nama Guru / Staf</label>
-                    <select id="ket-name" onchange="updateAvailableJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <select id="ket-name" onchange="handleKetNameChange()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                         <option value="">-- Pilih Nama --</option>
                     </select>
+                    <div id="auto-schedule-badge" class="hidden mt-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+                        <span id="auto-schedule-text">Jadwal otomatis terisi dari riwayat minggu lalu</span>
+                        <button type="button" onclick="resetAutoSchedule()" class="text-emerald-800 underline font-semibold ml-2 hover:text-emerald-950">Ubah Manual</button>
+                    </div>
                 </div>
 
                 <div>
@@ -615,6 +619,185 @@
             const m = totalMinutes % 60;
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
+
+        // Helper konversi string "HH:MM" ke total menit
+        function parseHHMMToMinutes(timeStr) {
+            if (!timeStr) return null;
+            const parts = timeStr.split(':');
+            if (parts.length < 2) return null;
+            return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        }
+
+        // Mencari riwayat jadwal mengajar guru pada hari dan jam yang sama
+        function findRecurringSchedule(teacherName) {
+            if (!teacherName || !allAttendanceData || allAttendanceData.length === 0) return null;
+
+            const now = new Date();
+            const currentDay = now.getDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const todayIso = getLocalDateStr(now);
+
+            // Filter data historis milik guru tersebut pada hari yang sama (sebelum hari ini)
+            const matchingDayRecords = allAttendanceData.filter(d => {
+                if (d.name !== teacherName || !d.date || d.date >= todayIso) return false;
+                const [y, m, day] = d.date.split('-').map(Number);
+                const recDate = new Date(y, m - 1, day);
+                return recDate.getDay() === currentDay;
+            });
+
+            // Urutkan dari tanggal yang paling baru (minggu lalu paling diprioritaskan)
+            matchingDayRecords.sort((a, b) => b.date.localeCompare(a.date));
+
+            // Kumpulkan semua sesi dari tanggal-tanggal tersebut
+            let candidateSessions = [];
+            matchingDayRecords.forEach(rec => {
+                if (rec.sessions && rec.sessions.length > 0) {
+                    rec.sessions.forEach(s => {
+                        candidateSessions.push({ ...s, recordDate: rec.date });
+                    });
+                } else if (rec.mapel && rec.kelas) {
+                    // Kompatibilitas data lama
+                    candidateSessions.push({
+                        mapel: rec.mapel,
+                        kelas: rec.kelas,
+                        jamKe: rec.jamKe || '',
+                        recordDate: rec.date
+                    });
+                }
+            });
+
+            if (candidateSessions.length === 0) return null;
+
+            // 1. Cari sesi yang rentang waktunya cocok dengan jam saat ini (toleransi ±25 menit)
+            for (const s of candidateSessions) {
+                const timeMatch = String(s.jamKe).match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+                if (timeMatch) {
+                    const startMin = parseHHMMToMinutes(timeMatch[1]);
+                    const endMin = parseHHMMToMinutes(timeMatch[2]);
+                    if (startMin !== null && endMin !== null) {
+                        if (currentMinutes >= (startMin - 25) && currentMinutes <= (endMin + 15)) {
+                            return s;
+                        }
+                    }
+                }
+            }
+
+            // 2. Fallback: Cocokkan berdasarkan urutan jam ke- saat ini
+            const isFriday = currentDay === 5;
+            const startSchoolMinutes = isFriday ? (7 * 60 + 10) : (7 * 60);
+            let currentPeriod = 1;
+            if (currentMinutes >= startSchoolMinutes) {
+                currentPeriod = Math.floor((currentMinutes - startSchoolMinutes) / 40) + 1;
+            }
+
+            for (const s of candidateSessions) {
+                const periodMatch = String(s.jamKe).match(/^(\d+)(?:-(\d+))?/);
+                if (periodMatch) {
+                    const pStart = parseInt(periodMatch[1], 10);
+                    const pEnd = periodMatch[2] ? parseInt(periodMatch[2], 10) : pStart;
+                    if (currentPeriod >= pStart && currentPeriod <= pEnd) {
+                        return s;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        // Menangani pemilihan nama guru dan pengisian jadwal otomatis
+        window.handleKetNameChange = function() {
+            const name = document.getElementById('ket-name').value;
+            const badge = document.getElementById('auto-schedule-badge');
+            const badgeText = document.getElementById('auto-schedule-text');
+
+            if (!name) {
+                if (badge) badge.classList.add('hidden');
+                updateAvailableJamKe();
+                return;
+            }
+
+            const matchedSession = findRecurringSchedule(name);
+
+            if (matchedSession) {
+                // 1. Isi Mata Pelajaran
+                const mapelSelect = document.getElementById('form-mapel');
+                if (matchedSession.mapel) {
+                    // Pastikan opsi tersedia di dropdown
+                    if (!Array.from(mapelSelect.options).some(opt => opt.value === matchedSession.mapel)) {
+                        const opt = document.createElement('option');
+                        opt.value = matchedSession.mapel;
+                        opt.text = matchedSession.mapel;
+                        mapelSelect.appendChild(opt);
+                    }
+                    mapelSelect.value = matchedSession.mapel;
+                }
+
+                // 2. Deteksi & Isi Tingkat Kelas serta Rombel/Kelas
+                const tingkatSelect = document.getElementById('form-tingkat');
+                const kelasSelect = document.getElementById('form-kelas');
+                if (matchedSession.kelas) {
+                    const firstChar = matchedSession.kelas.charAt(0);
+                    if (['7', '8', '9'].includes(firstChar)) {
+                        tingkatSelect.value = firstChar;
+                    } else {
+                        tingkatSelect.value = 'lainnya';
+                    }
+                    filterKelas();
+
+                    if (!Array.from(kelasSelect.options).some(opt => opt.value === matchedSession.kelas)) {
+                        const opt = document.createElement('option');
+                        opt.value = matchedSession.kelas;
+                        opt.text = matchedSession.kelas;
+                        kelasSelect.appendChild(opt);
+                    }
+                    kelasSelect.value = matchedSession.kelas;
+                }
+
+                // 3. Hitung & Isi Jumlah Jam Pelajaran dari riwayat jamKe (misal "1-2" -> 2 jam)
+                const durasiSelect = document.getElementById('form-durasi-jam');
+                let durasi = 2; // default fallback
+                const periodMatch = String(matchedSession.jamKe).match(/^(\d+)(?:-(\d+))?/);
+                if (periodMatch) {
+                    const pStart = parseInt(periodMatch[1], 10);
+                    const pEnd = periodMatch[2] ? parseInt(periodMatch[2], 10) : pStart;
+                    durasi = Math.max(1, Math.min(5, (pEnd - pStart + 1)));
+                }
+                durasiSelect.value = String(durasi);
+
+                // Hitung jam ke- dan rentang waktu otomatis untuk hari ini
+                calculateAutoJamKe();
+
+                if (badge && badgeText) {
+                    badgeText.innerText = `✓ Jadwal otomatis terisi (${matchedSession.mapel} - ${matchedSession.kelas})`;
+                    badge.classList.remove('hidden');
+                }
+            } else {
+                // Guru belum pernah mengisi data pada hari/jam ini -> biarkan kosong untuk diisi manual
+                if (badge) badge.classList.add('hidden');
+                document.getElementById('form-mapel').value = "";
+                document.getElementById('form-tingkat').value = "";
+                filterKelas();
+                document.getElementById('form-kelas').value = "";
+                document.getElementById('form-durasi-jam').value = "";
+                document.getElementById('form-jam-ke').value = "";
+                const previewBox = document.getElementById('auto-jam-preview');
+                if (previewBox) previewBox.classList.add('hidden');
+            }
+        };
+
+        // Reset pilihan otomatis jika guru ingin mengubah jadwal secara manual
+        window.resetAutoSchedule = function() {
+            document.getElementById('form-mapel').value = "";
+            document.getElementById('form-tingkat').value = "";
+            filterKelas();
+            document.getElementById('form-kelas').value = "";
+            document.getElementById('form-durasi-jam').value = "";
+            document.getElementById('form-jam-ke').value = "";
+            const previewBox = document.getElementById('auto-jam-preview');
+            if (previewBox) previewBox.classList.add('hidden');
+            const badge = document.getElementById('auto-schedule-badge');
+            if (badge) badge.classList.add('hidden');
+        };
 
         // Hitung Jam Ke- Otomatis berdasarkan Real-Time (Mulai 07:00, 40 menit per jam)
         window.calculateAutoJamKe = function() {
@@ -1731,6 +1914,8 @@
                 document.getElementById('form-durasi-jam').value = "";
                 document.getElementById('form-jam-ke').value = "";
                 document.getElementById('auto-jam-preview').classList.add('hidden');
+                const autoBadge = document.getElementById('auto-schedule-badge');
+                if (autoBadge) autoBadge.classList.add('hidden');
                 document.getElementById('form-tercapai').value = "Y";
                 document.getElementById('ket-name').value = "";
                 
