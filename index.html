@@ -107,9 +107,14 @@
                             <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             <span class="digital-date-display">Memuat tanggal...</span>
                         </div>
-                        <div class="flex items-center space-x-1.5 bg-gray-900 text-green-400 font-mono font-bold px-3 py-1 rounded-md text-sm sm:text-base tracking-wider shadow-inner">
-                            <svg class="w-4 h-4 text-green-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <span class="digital-clock-display">00:00:00</span>
+                        <div class="flex items-center space-x-2">
+                            <div class="flex items-center space-x-1.5 bg-gray-900 text-green-400 font-mono font-bold px-3 py-1 rounded-md text-sm sm:text-base tracking-wider shadow-inner">
+                                <svg class="w-4 h-4 text-green-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span class="digital-clock-display">00:00:00</span>
+                            </div>
+                            <div class="flex items-center bg-blue-100 text-blue-800 font-bold px-2 py-1 rounded-md text-xs sm:text-sm tracking-wide border border-blue-200 shadow-sm">
+                                <span class="current-period-display">Jam Ke: -</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -201,9 +206,14 @@
                             <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             <span class="digital-date-display">Memuat tanggal...</span>
                         </div>
-                        <div class="flex items-center space-x-1.5 bg-gray-900 text-green-400 font-mono font-bold px-3 py-1 rounded-md text-sm sm:text-base tracking-wider shadow-inner">
-                            <svg class="w-4 h-4 text-green-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <span class="digital-clock-display">00:00:00</span>
+                        <div class="flex items-center space-x-2">
+                            <div class="flex items-center space-x-1.5 bg-gray-900 text-green-400 font-mono font-bold px-3 py-1 rounded-md text-sm sm:text-base tracking-wider shadow-inner">
+                                <svg class="w-4 h-4 text-green-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span class="digital-clock-display">00:00:00</span>
+                            </div>
+                            <div class="flex items-center bg-blue-100 text-blue-800 font-bold px-2 py-1 rounded-md text-xs sm:text-sm tracking-wide border border-blue-200 shadow-sm">
+                                <span class="current-period-display">Jam Ke: -</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -647,6 +657,36 @@
                 }
             }
             return periods;
+        }
+
+        // Update indikator real-time Jam Ke- / Istirahat
+        function updateCurrentPeriodDisplay(now) {
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const scheduleMap = getScheduleMapping(now);
+            const maxPeriods = Object.keys(scheduleMap).length;
+            
+            let currentPeriod = "-";
+            
+            if (currentMinutes < scheduleMap[1].start) {
+                currentPeriod = "Belum Masuk";
+            } else if (currentMinutes >= scheduleMap[maxPeriods].end) {
+                currentPeriod = "Selesai";
+            } else {
+                for (let i = 1; i <= maxPeriods; i++) {
+                    if (currentMinutes >= scheduleMap[i].start && currentMinutes < scheduleMap[i].end) {
+                        currentPeriod = `Jam Ke-${i}`;
+                        break;
+                    }
+                    if (i < maxPeriods && currentMinutes >= scheduleMap[i].end && currentMinutes < scheduleMap[i+1].start) {
+                        currentPeriod = "Istirahat";
+                        break;
+                    }
+                }
+            }
+            
+            document.querySelectorAll('.current-period-display').forEach(el => {
+                el.innerText = currentPeriod;
+            });
         }
 
         // Mencari riwayat jadwal mengajar guru pada hari dan jam yang sama
@@ -1251,6 +1291,8 @@
                 document.querySelectorAll('.digital-clock-display').forEach(el => {
                     el.innerText = time24Str;
                 });
+                
+                updateCurrentPeriodDisplay(now);
             }
 
             updateClock();
