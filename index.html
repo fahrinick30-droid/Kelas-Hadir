@@ -617,6 +617,42 @@
             return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
         }
 
+        // Peta Jadwal Pelajaran (40 Menit per Jam, menyesuaikan hari)
+        function getScheduleMapping(dateObj) {
+            const dayOfWeek = dateObj.getDay();
+            let periods = {};
+            let currentMin = 0;
+
+            if (dayOfWeek === 1) { 
+                // SENIN: Mulai 07:40
+                currentMin = 7 * 60 + 40; 
+                for (let i = 1; i <= 10; i++) {
+                    if (i === 3) currentMin += 30; // Istirahat 1: 09:00-09:30 (Setelah jam ke-2)
+                    if (i === 7) currentMin += 30; // Istirahat 2: 12:10-12:40 (Setelah jam ke-6)
+                    periods[i] = { start: currentMin, end: currentMin + 40 };
+                    currentMin += 40;
+                }
+            } else if (dayOfWeek === 5) { 
+                // JUMAT: Mulai 07:10
+                currentMin = 7 * 60 + 10; 
+                for (let i = 1; i <= 8; i++) {
+                    if (i === 3) currentMin += 30; // Istirahat: 08:30-09:00 (Setelah jam ke-2)
+                    periods[i] = { start: currentMin, end: currentMin + 40 };
+                    currentMin += 40;
+                }
+            } else { 
+                // SELASA - KAMIS (dan fallback akhir pekan): Mulai 07:00
+                currentMin = 7 * 60; 
+                for (let i = 1; i <= 10; i++) {
+                    if (i === 5) currentMin += 30; // Istirahat 1: 09:40-10:10 (Setelah jam ke-4)
+                    if (i === 8) currentMin += 30; // Istirahat 2: 12:10-12:40 (Setelah jam ke-7)
+                    periods[i] = { start: currentMin, end: currentMin + 40 };
+                    currentMin += 40;
+                }
+            }
+            return periods;
+        }
+
         // Mencari riwayat jadwal mengajar guru pada hari dan jam yang sama
         function findRecurringSchedule(teacherName) {
             if (!teacherName || !allAttendanceData || allAttendanceData.length === 0) return null;
@@ -672,11 +708,19 @@
             }
 
             // 2. Fallback: Cocokkan berdasarkan urutan jam ke- saat ini
-            const isFriday = currentDay === 5;
-            const startSchoolMinutes = isFriday ? (7 * 60 + 10) : (7 * 60);
+            const scheduleMap = getScheduleMapping(now);
+            const maxPeriods = Object.keys(scheduleMap).length;
             let currentPeriod = 1;
-            if (currentMinutes >= startSchoolMinutes) {
-                currentPeriod = Math.floor((currentMinutes - startSchoolMinutes) / 40) + 1;
+            
+            for (let i = 1; i <= maxPeriods; i++) {
+                if (currentMinutes <= scheduleMap[i].end) {
+                    currentPeriod = i;
+                    // Jika waktu saat ini masih sebelum jam masuk sekolah, tetap anggap jam 1
+                    if (currentMinutes < scheduleMap[1].start) currentPeriod = 1;
+                    break;
+                }
+                // Jika melebihi jam terakhir
+                if (i === maxPeriods) currentPeriod = i;
             }
 
             for (const s of candidateSessions) {
@@ -807,15 +851,20 @@
 
             const now = new Date();
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            // Khusus hari Jum'at (getDay() === 5) mulai pukul 07:10 (430 menit), hari lain pukul 07:00 (420 menit)
-            const isFriday = now.getDay() === 5;
-            const startSchoolMinutes = isFriday ? (7 * 60 + 10) : (7 * 60);
+            const dayOfWeek = now.getDay();
+            
+            const scheduleMap = getScheduleMapping(now);
+            const maxPeriods = Object.keys(scheduleMap).length;
 
             // Tentukan jam ke- awal berdasarkan waktu sekarang
-            // Jika sebelum jam masuk pertama, otomatis dianggap mulai jam ke-1
             let startPeriod = 1;
-            if (currentMinutes >= startSchoolMinutes) {
-                startPeriod = Math.floor((currentMinutes - startSchoolMinutes) / 40) + 1;
+            for (let i = 1; i <= maxPeriods; i++) {
+                if (currentMinutes <= scheduleMap[i].end) {
+                    startPeriod = i;
+                    if (currentMinutes < scheduleMap[1].start) startPeriod = 1;
+                    break;
+                }
+                if (i === maxPeriods) startPeriod = maxPeriods;
             }
 
             // Cek riwayat guru hari ini agar tidak bentrok dengan jam yang sudah terpakai
@@ -839,19 +888,28 @@
             if (startPeriod <= maxUsedJam) {
                 startPeriod = maxUsedJam + 1;
             }
+            
+            // Batasi agar tidak melebihi maksimal jam pelajaran yang ada
+            if (startPeriod > maxPeriods) startPeriod = maxPeriods;
 
-            const endPeriod = startPeriod + durasi - 1;
-            const periodStartMin = startSchoolMinutes + (startPeriod - 1) * 40;
-            const periodEndMin = periodStartMin + durasi * 40;
+            let endPeriod = startPeriod + durasi - 1;
+            if (endPeriod > maxPeriods) endPeriod = maxPeriods;
 
-            const rangeJamLabel = durasi === 1 ? `${startPeriod}` : `${startPeriod}-${endPeriod}`;
+            const periodStartMin = scheduleMap[startPeriod].start;
+            const periodEndMin = scheduleMap[endPeriod].end;
+
+            const rangeJamLabel = (startPeriod === endPeriod) ? `${startPeriod}` : `${startPeriod}-${endPeriod}`;
             const rangeTimeStr = `${formatMinutesToHHMM(periodStartMin)}-${formatMinutesToHHMM(periodEndMin)}`;
 
-            // Format yang disimpan ke sistem & Spreadsheet: misal "1-2 (07:10-08:30)" pada hari Jum'at
+            let dayInfo = '';
+            if (dayOfWeek === 1) dayInfo = ' (Jadwal Senin)';
+            else if (dayOfWeek === 5) dayInfo = ' (Jadwal Jum\'at)';
+
+            // Format yang disimpan ke sistem & Spreadsheet: misal "1-2 (07:40-09:00)" pada hari Senin
             jamKeInput.value = `${rangeJamLabel} (${rangeTimeStr})`;
 
             if (previewBox && labelEl && timeEl) {
-                labelEl.innerText = `Jam Ke-${rangeJamLabel}${isFriday ? ' (Jadwal Jum\'at)' : ''}`;
+                labelEl.innerText = `Jam Ke-${rangeJamLabel}${dayInfo}`;
                 timeEl.innerText = `Pukul ${rangeTimeStr} WIB`;
                 previewBox.classList.remove('hidden');
             }
