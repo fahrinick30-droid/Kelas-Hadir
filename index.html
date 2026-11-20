@@ -679,29 +679,18 @@
         function getScheduleMapping(dateObj) {
             const dayOfWeek = dateObj.getDay();
             let periods = {};
-            let currentMin = 0;
+            let currentMin = 7 * 60; // Semua hari mulai pukul 07:00
 
-            if (dayOfWeek === 1) { 
-                // SENIN: Mulai 07:40
-                currentMin = 7 * 60 + 40; 
-                for (let i = 1; i <= 9; i++) { // Maksimal Jam ke-9
-                    if (i === 3) currentMin += 30; // Istirahat 1: 09:00-09:30 (Setelah jam ke-2)
-                    if (i === 7) currentMin += 30; // Istirahat 2: 12:10-12:40 (Setelah jam ke-6)
-                    periods[i] = { start: currentMin, end: currentMin + 40 };
-                    currentMin += 40;
-                }
-            } else if (dayOfWeek === 5) { 
-                // JUMAT: Mulai 07:10
-                currentMin = 7 * 60 + 10; 
-                for (let i = 1; i <= 4; i++) { // Maksimal Jam ke-4
-                    if (i === 3) currentMin += 30; // Istirahat: 08:30-09:00 (Setelah jam ke-2)
+            if (dayOfWeek === 5) { 
+                // JUMAT: Mulai 07:00
+                for (let i = 1; i <= 6; i++) { // Maksimal Jam ke-6
+                    if (i === 4) currentMin += 20; // Istirahat: 09:00-09:20 (Setelah jam ke-3)
                     periods[i] = { start: currentMin, end: currentMin + 40 };
                     currentMin += 40;
                 }
             } else { 
-                // SELASA - KAMIS (dan fallback akhir pekan): Mulai 07:00
-                currentMin = 7 * 60; 
-                for (let i = 1; i <= 9; i++) { // Maksimal Jam ke-9
+                // SENIN - KAMIS (dan fallback akhir pekan): Mulai 07:00
+                for (let i = 1; i <= 10; i++) { // Maksimal Jam ke-10
                     if (i === 5) currentMin += 30; // Istirahat 1: 09:40-10:10 (Setelah jam ke-4)
                     if (i === 8) currentMin += 30; // Istirahat 2: 12:10-12:40 (Setelah jam ke-7)
                     periods[i] = { start: currentMin, end: currentMin + 40 };
@@ -781,21 +770,7 @@
 
             if (candidateSessions.length === 0) return null;
 
-            // 1. Cari sesi yang rentang waktunya cocok dengan jam saat ini (toleransi ±25 menit)
-            for (const s of candidateSessions) {
-                const timeMatch = String(s.jamKe).match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
-                if (timeMatch) {
-                    const startMin = parseHHMMToMinutes(timeMatch[1]);
-                    const endMin = parseHHMMToMinutes(timeMatch[2]);
-                    if (startMin !== null && endMin !== null) {
-                        if (currentMinutes >= (startMin - 25) && currentMinutes <= (endMin + 15)) {
-                            return s;
-                        }
-                    }
-                }
-            }
-
-            // 2. Fallback: Cocokkan berdasarkan urutan jam ke- saat ini
+            // Tentukan jam ke- berapakah saat ini berdasarkan real-time
             const scheduleMap = getScheduleMapping(now);
             const maxPeriods = Object.keys(scheduleMap).length;
             let currentPeriod = 1;
@@ -803,19 +778,19 @@
             for (let i = 1; i <= maxPeriods; i++) {
                 if (currentMinutes <= scheduleMap[i].end) {
                     currentPeriod = i;
-                    // Jika waktu saat ini masih sebelum jam masuk sekolah, tetap anggap jam 1
                     if (currentMinutes < scheduleMap[1].start) currentPeriod = 1;
                     break;
                 }
-                // Jika melebihi jam terakhir
                 if (i === maxPeriods) currentPeriod = i;
             }
 
+            // Cari sesi di mana currentPeriod (waktu sekarang) berada persis di dalam rentang riwayat tersebut
             for (const s of candidateSessions) {
                 const periodMatch = String(s.jamKe).match(/^(\d+)(?:-(\d+))?/);
                 if (periodMatch) {
                     const pStart = parseInt(periodMatch[1], 10);
                     const pEnd = periodMatch[2] ? parseInt(periodMatch[2], 10) : pStart;
+                    // Jika jam ke- saat ini masuk dalam rentang riwayat tersebut (misal riwayat 3-4, dan sekarang jam 3, maka cocok)
                     if (currentPeriod >= pStart && currentPeriod <= pEnd) {
                         return s;
                     }
@@ -896,8 +871,15 @@
                 }
                 durasiSelect.value = String(durasi);
 
-                // Hitung jam ke- dan rentang waktu otomatis untuk hari ini
-                calculateAutoJamKe();
+                // Gunakan rentang waktu persis seperti minggu lalu tanpa menghitung ulang startPeriod
+                document.getElementById('form-jam-ke').value = matchedSession.jamKe;
+                
+                const previewBox = document.getElementById('auto-jam-preview');
+                const labelEl = document.getElementById('auto-jam-label');
+                if (previewBox && labelEl) {
+                    labelEl.innerText = `Jam Ke- ${matchedSession.jamKe}`;
+                    previewBox.classList.remove('hidden');
+                }
 
                 if (badge && badgeText) {
                     badgeText.innerText = `✓ Jadwal otomatis terisi (${matchedSession.mapel} - ${matchedSession.kelas})`;
