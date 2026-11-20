@@ -33,6 +33,22 @@
             .spreadsheet-table th { background-color: #e2e8f0 !important; -webkit-print-color-adjust: exact; }
             #monitor-view { padding: 0; margin: 0; box-shadow: none; border: none; }
         }
+        /* Custom Animations for AI Camera */
+        @keyframes scan {
+            0%, 100% { top: 10%; opacity: 0; }
+            10%, 90% { opacity: 1; }
+            50% { top: 90%; }
+        }
+        .animate-scan {
+            animation: scan 2.5s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 25px 15px rgba(34, 197, 94, 0.2); }
+        }
+        .animate-pulse-glow {
+            animation: pulse-glow 2s infinite;
+        }
     </style>
 </head>
 <body class="text-gray-800 h-screen flex flex-col">
@@ -508,20 +524,28 @@
 
     <!-- Camera Modal -->
     <div id="camera-modal" class="fixed inset-0 bg-black flex flex-col z-[60] hidden">
-        <div class="p-4 flex justify-between items-center bg-gray-900 text-white">
+        <div class="p-4 flex justify-between items-center bg-gray-900 text-white z-20">
             <h3 class="text-lg font-bold">Ambil Bukti Kehadiran</h3>
             <button onclick="closeCamera()" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 font-medium">Batal</button>
         </div>
         <div class="flex-grow relative flex items-center justify-center bg-black overflow-hidden">
             <video id="camera-video" class="max-w-full max-h-full object-cover w-full h-full" playsinline autoplay muted></video>
+            
+            <!-- Efek Scanning AI -->
+            <div id="ai-scanner" class="absolute inset-0 pointer-events-none z-10 flex flex-col">
+                <div class="absolute left-8 right-8 h-1 bg-green-400 shadow-[0_0_15px_4px_rgba(74,222,128,0.8)] animate-scan rounded-full"></div>
+            </div>
+            
+            <!-- Bingkai Kamera -->
+            <div id="camera-guideline" class="absolute inset-0 border-4 border-dashed border-white border-opacity-30 pointer-events-none m-8 rounded-xl transition-all duration-500 z-10"></div>
+
             <!-- Badge penghitung jumlah orang real-time -->
-            <div id="person-counter-badge" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-white px-4 py-2 rounded-full text-sm font-bold flex items-center space-x-2 border border-gray-600 shadow-lg z-10">
+            <div id="person-counter-badge" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-white px-4 py-2 rounded-full text-sm font-bold flex items-center space-x-2 border border-gray-600 shadow-lg z-20">
                 <span id="person-counter-dot" class="w-3 h-3 rounded-full bg-yellow-400 animate-ping"></span>
                 <span id="person-counter-text">Memuat AI Deteksi...</span>
             </div>
-            <div id="camera-guideline" class="absolute inset-0 border-4 border-dashed border-white opacity-30 pointer-events-none m-8 rounded-xl"></div>
         </div>
-        <div class="p-6 bg-gray-900 flex flex-col items-center">
+        <div class="p-6 bg-gray-900 flex flex-col items-center z-20">
             <p id="camera-status" class="text-yellow-400 text-sm font-medium mb-4 text-center">Menyiapkan kamera & AI...</p>
             <button id="btn-capture" onclick="capturePhoto()" disabled class="bg-gray-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-all flex items-center space-x-2 opacity-50 cursor-not-allowed">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -1111,6 +1135,8 @@
             const btnCapture = document.getElementById('btn-capture');
             const counterText = document.getElementById('person-counter-text');
             const counterDot = document.getElementById('person-counter-dot');
+            const scanner = document.getElementById('ai-scanner');
+            const guideline = document.getElementById('camera-guideline');
 
             if (detectionInterval) clearInterval(detectionInterval);
 
@@ -1125,21 +1151,29 @@
 
                     if (count >= 3) {
                         // SYARAT TERPENUHI (> 2 orang / minimal 3 orang: Guru + 2 Siswa)
-                        counterText.innerText = `Terdeteksi: ${count} Orang (Memenuhi Syarat)`;
+                        counterText.innerText = `Terdeteksi: ${count} Orang`;
                         counterDot.className = "w-3 h-3 rounded-full bg-green-500";
                         statusText.innerText = "Siap! Silakan tekan tombol untuk mengambil foto.";
                         statusText.className = "text-green-400 text-sm font-bold mb-4 text-center";
                         
+                        // Hentikan efek scanning dan nyalakan glow hijau pada bingkai
+                        scanner.classList.add('hidden');
+                        guideline.className = "absolute inset-0 border-4 border-green-500 pointer-events-none m-8 rounded-xl transition-all duration-500 z-10 animate-pulse-glow";
+                        
                         btnCapture.disabled = false;
-                        btnCapture.className = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-transform transform active:scale-95 flex items-center space-x-2 cursor-pointer";
+                        btnCapture.className = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-transform transform active:scale-95 flex items-center space-x-2 cursor-pointer";
                     } else {
                         // SYARAT TIDAK TERPENUHI (Hanya 1 atau 2 orang) -> Tombol Terkunci
-                        counterText.innerText = `Terdeteksi: ${count} Orang (Minimal 3 Orang)`;
+                        counterText.innerText = `Terdeteksi: ${count} Orang`;
                         counterDot.className = "w-3 h-3 rounded-full bg-red-500 animate-pulse";
                         statusText.innerText = count === 0 
-                            ? "Tidak ada orang terdeteksi di kamera." 
-                            : `Baru terdeteksi ${count} orang. Ajak minimal ${3 - count} siswa lagi masuk ke layar!`;
+                            ? "AI Sedang Memindai... Tidak ada orang di layar." 
+                            : `Memindai... Baru terdeteksi ${count} orang.`;
                         statusText.className = "text-red-400 text-sm font-medium mb-4 text-center";
+                        
+                        // Aktifkan kembali efek scanning AI
+                        scanner.classList.remove('hidden');
+                        guideline.className = "absolute inset-0 border-4 border-dashed border-white border-opacity-30 pointer-events-none m-8 rounded-xl transition-all duration-500 z-10";
                         
                         btnCapture.disabled = true;
                         btnCapture.className = "bg-gray-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-all flex items-center space-x-2 opacity-50 cursor-not-allowed";
