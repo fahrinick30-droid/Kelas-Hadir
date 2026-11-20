@@ -524,13 +524,13 @@
         </div>
     </div>
 
-    <!-- Done Overlay Modal (Tengah Layar) -->
-    <div id="done-overlay" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] hidden">
+    <!-- BERHASIL Overlay Modal (Tengah Layar) -->
+    <div id="BERHASIL-overlay" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] hidden">
         <div class="bg-white rounded-2xl p-8 max-w-xs w-full mx-4 shadow-2xl flex flex-col items-center justify-center text-center transform transition-all">
             <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
                 <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </div>
-            <h2 class="text-3xl font-extrabold text-gray-900 tracking-wide">Done</h2>
+            <h2 class="text-3xl font-extrabold text-gray-900 tracking-wide">BERHASIL</h2>
             <p class="text-sm text-gray-500 mt-1">Data berhasil tersimpan</p>
         </div>
     </div>
@@ -1259,10 +1259,10 @@
                 document.getElementById('photo-indicator-harian').classList.remove('hidden');
                 setStatusHarian('Hadir', 'btn-status-hadir');
                 
-                // Beri sedikit delay agar indikator proses terlihat mulus sebelum muncul Done
+                // Beri sedikit delay agar indikator proses terlihat mulus sebelum muncul BERHASIL
                 setTimeout(() => {
                     hideProcessLoader();
-                    showDoneOverlay();
+                    showBERHASILOverlay();
                 }, 1200);
             } else if (currentPhotoTarget === 'kelas') {
                 document.getElementById('form-photo-kelas').value = base64Photo;
@@ -1275,8 +1275,8 @@
             }
         };
 
-        window.showDoneOverlay = function() {
-            const overlay = document.getElementById('done-overlay');
+        window.showBERHASILOverlay = function() {
+            const overlay = document.getElementById('BERHASIL-overlay');
             overlay.classList.remove('hidden');
             setTimeout(() => {
                 overlay.classList.add('hidden');
@@ -2022,7 +2022,7 @@
                 }
 
                 hideProcessLoader();
-                showDoneOverlay();
+                showBERHASILOverlay();
 
                 const msgBox = document.getElementById('form-message');
                 msgBox.innerText = "Jam kehadiran berhasil disimpan!";
@@ -2141,7 +2141,7 @@
 
                 hideProcessLoader();
                 msgBox.classList.add('hidden');
-                showDoneOverlay();
+                showBERHASILOverlay();
                 
                 document.getElementById('form-mapel').value = "";
                 document.getElementById('form-tingkat').value = "";
