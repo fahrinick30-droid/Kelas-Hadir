@@ -654,10 +654,16 @@
         window.updateAvailableJamKe = function() {
             const date = document.getElementById('ket-date').value;
             const name = document.getElementById('ket-name').value;
-            const mapel = document.getElementById('form-mapel').value;
             const jamKeSelect = document.getElementById('form-jam-ke');
 
             if (!jamKeSelect) return;
+
+            // Helper untuk mengambil angka jam tertinggi dari string (misal "5-6" -> 6, "3" -> 3)
+            const getMaxJam = (str) => {
+                const nums = String(str).match(/\d+/g);
+                if (!nums || nums.length === 0) return 0;
+                return Math.max(...nums.map(Number));
+            };
 
             // 1. Reset ulang semua pilihan (aktifkan semua kembali)
             Array.from(jamKeSelect.options).forEach(opt => {
@@ -668,28 +674,35 @@
                 }
             });
 
-            // 2. Jika salah satu dari Tanggal, Nama, atau Mapel belum diisi, hentikan (semua jam tersedia)
-            if (!date || !name || !mapel) return;
+            // 2. Jika Tanggal atau Nama belum diisi, hentikan (semua jam tersedia)
+            if (!date || !name) return;
 
             // 3. Cari riwayat di tanggal dan nama tersebut
             const record = allAttendanceData.find(d => d.date === date && d.name === name);
             
-            if (record && record.sessions) {
-                // Temukan jam ke- berapa saja yang sudah dipakai untuk MAPEL ini
-                const usedJamKe = record.sessions
-                    .filter(s => s.mapel === mapel)
-                    .map(s => s.jamKe);
-
-                // 4. Kunci opsi jam ke- yang sudah dipakai
-                Array.from(jamKeSelect.options).forEach(opt => {
-                    if (usedJamKe.includes(opt.value)) {
-                        opt.disabled = true;
-                        opt.text = `${opt.value} (Terpakai)`;
-                        opt.classList.add('bg-gray-100', 'text-gray-400'); // Efek visual dinonaktifkan
+            if (record && record.sessions && record.sessions.length > 0) {
+                // Cari jam tertinggi yang sudah diisi guru pada hari tersebut
+                let maxUsedJam = 0;
+                record.sessions.forEach(s => {
+                    const jamVal = getMaxJam(s.jamKe);
+                    if (jamVal > maxUsedJam) {
+                        maxUsedJam = jamVal;
                     }
                 });
 
-                // Kosongkan nilai dropdown jika opsi yang saat ini sedang dipilih tiba-tiba menjadi disabled
+                // 4. Kunci semua opsi jam ke- yang nilainya <= maxUsedJam (misal 5-6 dipakai -> 1 s/d 6 terkunci)
+                Array.from(jamKeSelect.options).forEach(opt => {
+                    if (opt.value !== "") {
+                        const optMaxJam = getMaxJam(opt.value);
+                        if (optMaxJam > 0 && optMaxJam <= maxUsedJam) {
+                            opt.disabled = true;
+                            opt.text = `${opt.value} (Sudah Lewat / Terpakai)`;
+                            opt.classList.add('bg-gray-100', 'text-gray-400');
+                        }
+                    }
+                });
+
+                // Kosongkan nilai dropdown jika opsi yang saat ini sedang dipilih menjadi disabled
                 if (jamKeSelect.selectedIndex >= 0 && jamKeSelect.options[jamKeSelect.selectedIndex].disabled) {
                     jamKeSelect.value = "";
                 }
@@ -1621,6 +1634,19 @@
                 });
                 // ----------------------------------------------
 
+                // Perbarui memori lokal agar penguncian jam ke- langsung berlaku seketika
+                let existingRecord = allAttendanceData.find(d => d.date === date && d.name === name);
+                if (existingRecord) {
+                    if (!existingRecord.sessions) existingRecord.sessions = [];
+                    existingRecord.sessions.push(sessionData);
+                } else {
+                    allAttendanceData.push({
+                        date: date,
+                        name: name,
+                        sessions: [sessionData]
+                    });
+                }
+
                 msgBox.classList.add('hidden');
                 showDoneOverlay();
                 
@@ -1631,8 +1657,9 @@
                 document.getElementById('form-tercapai').value = "";
                 document.getElementById('ket-name').value = "";
                 
-                // Reset buttons
+                // Reset buttons & perbarui opsi jam ke-
                 window.filterKelas();
+                window.updateAvailableJamKe();
                 document.getElementById('form-kehadiran-kelas').value = "";
                 document.getElementById('form-photo-kelas').value = "";
                 document.getElementById('photo-indicator-kelas').classList.add('hidden');
