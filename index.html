@@ -145,9 +145,8 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Status Kehadiran Hari Ini</label>
                     <input type="hidden" id="form-status-kehadiran" value="Hadir">
-                    <input type="hidden" id="form-photo-harian" value="">
                     <div class="grid grid-cols-3 gap-2 text-center">
-                        <button type="button" id="btn-status-hadir" onclick="handleHadirClick('harian')" class="bg-gray-800 text-white border-2 border-gray-800 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full">Hadir</button>
+                        <button type="button" id="btn-status-hadir" onclick="setStatusHarian('Hadir', 'btn-status-hadir')" class="bg-gray-800 text-white border-2 border-gray-800 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full">Hadir</button>
                         <button type="button" id="btn-status-izin" onclick="setStatusHarian('Izin', 'btn-status-izin')" class="border-2 border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full">Izin</button>
                         <button type="button" id="btn-status-sakit" onclick="setStatusHarian('Sakit', 'btn-status-sakit')" class="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full">Sakit</button>
                     </div>
@@ -207,9 +206,8 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Kehadiran Guru di Kelas</label>
                     <input type="hidden" id="form-kehadiran-kelas" value="">
-                    <input type="hidden" id="form-photo-kelas" value="">
                     <div class="grid grid-cols-3 gap-2 text-center">
-                        <button type="button" id="btn-hadir" onclick="handleHadirClick('kelas')" class="border-2 border-blue-500 text-blue-600 rounded-lg p-2 font-semibold hover:bg-blue-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full">Hadir</button>
+                        <button type="button" id="btn-hadir" onclick="setKehadiranKelas('Hadir', 'btn-hadir')" class="border-2 border-blue-500 text-blue-600 rounded-lg p-2 font-semibold hover:bg-blue-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full">Hadir</button>
                         <button type="button" id="btn-tugas" onclick="setKehadiranKelas('Tidak Hadir Ada Tugas', 'btn-tugas')" class="border-2 border-yellow-500 text-yellow-600 rounded-lg p-2 font-semibold hover:bg-yellow-50 transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight">Tidak Hadir<br>Ada Tugas</button>
                         <button type="button" id="btn-alpa" onclick="setKehadiranKelas('Tidak Hadir', 'btn-alpa')" class="border-2 border-red-500 text-red-600 rounded-lg p-2 font-semibold hover:bg-red-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full">Tidak Hadir</button>
                     </div>
@@ -454,25 +452,6 @@
         </div>
     </div>
 
-    <!-- Camera Modal -->
-    <div id="camera-modal" class="fixed inset-0 bg-black flex flex-col z-[60] hidden">
-        <div class="p-4 flex justify-between items-center bg-gray-900 text-white">
-            <h3 class="text-lg font-bold">Ambil Bukti Kehadiran</h3>
-            <button onclick="closeCamera()" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 font-medium">Batal</button>
-        </div>
-        <div class="flex-grow relative flex items-center justify-center bg-black overflow-hidden">
-            <video id="camera-video" class="max-w-full max-h-full object-cover w-full h-full" playsinline autoplay muted></video>
-            <div id="camera-guideline" class="absolute inset-0 border-4 border-dashed border-white opacity-30 pointer-events-none m-8 rounded-xl"></div>
-        </div>
-        <div class="p-6 bg-gray-900 flex flex-col items-center">
-            <p id="camera-status" class="text-yellow-400 text-sm font-medium mb-4 text-center">Menyiapkan kamera...</p>
-            <button id="btn-capture" onclick="capturePhoto()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-transform transform active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                <span>Jepret & Verifikasi</span>
-            </button>
-        </div>
-    </div>
-
     <!-- Firebase Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -490,31 +469,12 @@
         let daftarMapel = [...defaultMapel];
         let daftarKelas = [...defaultKelas];
         let daftarJamKe = [...defaultJamKe];
-        let currentPhotoTarget = ''; // Menyimpan konteks tombol ('harian' atau 'kelas')
 
         // Helper Functions
         window.setJam = function(inputId) {
             const now = new Date();
             const jamStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':');
             document.getElementById(inputId).value = jamStr;
-        };
-
-        window.handleHadirClick = function(target) {
-            // Validasi awal sebelum buka kamera
-            if (target === 'kelas') {
-                const date = document.getElementById('ket-date').value;
-                const name = document.getElementById('ket-name').value;
-                if (!date || !name) {
-                    showModal("Peringatan", "Silakan pilih Tanggal dan Nama Guru terlebih dahulu.");
-                    return;
-                }
-                const record = allAttendanceData.find(d => d.date === date && d.name === name);
-                if (!record || record.statusHarian !== 'Hadir') {
-                    showModal("Akses Ditolak", "Anda tidak dapat memilih 'Hadir' di kelas karena Anda belum mengisi Absensi Harian atau berstatus Izin/Sakit hari ini.");
-                    return;
-                }
-            }
-            openCamera(target);
         };
 
         window.setStatusHarian = function(status, btnId) {
@@ -530,14 +490,29 @@
                 document.getElementById('btn-status-hadir').className = "bg-gray-800 text-white border-2 border-gray-800 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
             } else if (status === 'Izin') {
                 document.getElementById('btn-status-izin').className = "bg-purple-600 text-white border-2 border-purple-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
-                document.getElementById('form-photo-harian').value = ''; // Reset foto jika izin/sakit
             } else if (status === 'Sakit') {
                 document.getElementById('btn-status-sakit').className = "bg-orange-500 text-white border-2 border-orange-500 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
-                document.getElementById('form-photo-harian').value = ''; // Reset foto jika izin/sakit
             }
         };
 
         window.setKehadiranKelas = function(val, btnId) {
+            // Validasi: Guru harus sudah absen Harian = 'Hadir' untuk bisa klik Hadir di kelas
+            if (val === 'Hadir') {
+                const date = document.getElementById('ket-date').value;
+                const name = document.getElementById('ket-name').value;
+                
+                if (!date || !name) {
+                    showModal("Peringatan", "Silakan pilih Tanggal dan Nama Guru terlebih dahulu.");
+                    return;
+                }
+
+                const record = allAttendanceData.find(d => d.date === date && d.name === name);
+                if (!record || record.statusHarian !== 'Hadir') {
+                    showModal("Akses Ditolak", "Anda tidak dapat memilih 'Hadir' di kelas karena Anda belum mengisi Absensi Harian atau berstatus Izin/Sakit hari ini.");
+                    return;
+                }
+            }
+
             document.getElementById('form-kehadiran-kelas').value = val;
             
             // Reset styles
@@ -550,10 +525,8 @@
                 document.getElementById('btn-hadir').className = "bg-blue-600 text-white border-2 border-blue-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
             } else if (val === 'Tidak Hadir Ada Tugas') {
                 document.getElementById('btn-tugas').className = "bg-yellow-500 text-white border-2 border-yellow-500 rounded-lg p-2 font-semibold transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight";
-                document.getElementById('form-photo-kelas').value = ''; // Reset foto
             } else if (val === 'Tidak Hadir') {
                 document.getElementById('btn-alpa').className = "bg-red-600 text-white border-2 border-red-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
-                document.getElementById('form-photo-kelas').value = ''; // Reset foto
             }
         };
 
@@ -657,106 +630,6 @@
 
         window.closeModal = function() {
             document.getElementById('custom-modal').classList.add('hidden');
-        };
-
-        // --- Camera Modal Management ---
-        window.openCamera = async function(target) {
-            currentPhotoTarget = target;
-            const modal = document.getElementById('camera-modal');
-            const video = document.getElementById('camera-video');
-            const statusText = document.getElementById('camera-status');
-            const btnCapture = document.getElementById('btn-capture');
-
-            modal.classList.remove('hidden');
-            statusText.innerText = "Meminta akses kamera...";
-            statusText.className = "text-yellow-400 text-sm font-medium mb-4 text-center";
-            btnCapture.disabled = true;
-
-            try {
-                // Prioritaskan kamera depan (selfie), tanpa akses galeri (WebRTC native)
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-                });
-                video.srcObject = stream;
-                statusText.innerText = "Arahkan kamera agar terlihat Anda dan minimal 2 siswa/rekan.";
-                statusText.className = "text-white text-sm font-medium mb-4 text-center";
-                btnCapture.disabled = false;
-            } catch (err) {
-                statusText.innerText = "Gagal mengakses kamera. Pastikan perangkat memiliki kamera dan izin diberikan pada browser.";
-                statusText.className = "text-red-400 text-sm font-medium mb-4 text-center";
-                console.error(err);
-            }
-        };
-
-        window.closeCamera = function() {
-            const video = document.getElementById('camera-video');
-            if (video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
-            }
-            document.getElementById('camera-modal').classList.add('hidden');
-        };
-
-        window.capturePhoto = async function() {
-            const video = document.getElementById('camera-video');
-            const statusText = document.getElementById('camera-status');
-            const btnCapture = document.getElementById('btn-capture');
-
-            if (!video.srcObject) return;
-
-            btnCapture.disabled = true;
-            statusText.innerText = "Memproses deteksi wajah...";
-            statusText.className = "text-yellow-400 text-sm font-medium mb-4 text-center";
-
-            // Tangkap frame ke canvas dan di kompres ukurannya
-            const canvas = document.createElement('canvas');
-            const targetWidth = 320; // Kompresi kuat agar muat di Google Sheet
-            canvas.width = targetWidth; 
-            canvas.height = (video.videoHeight / video.videoWidth) * targetWidth;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Deteksi Wajah (Menggunakan native FaceDetector eksperimental jika ada)
-            let faceCount = 0;
-            if ('FaceDetector' in window) {
-                try {
-                    const detector = new FaceDetector({ fastMode: true });
-                    const faces = await detector.detect(canvas);
-                    faceCount = faces.length;
-                } catch (e) {
-                    console.warn("Face detection API error", e);
-                    faceCount = -1; // Fallback 
-                }
-            } else {
-                faceCount = -1; // Fallback jika browser (seperti iOS Safari) belum support
-            }
-
-            // Validasi jumlah wajah (Guru + minimal 2 siswa = 3)
-            if (faceCount !== -1 && faceCount < 3) {
-                statusText.innerText = `Terdeteksi hanya ${faceCount} wajah. Pastikan ada Anda dan minimal 2 siswa. Silakan jepret ulang.`;
-                statusText.className = "text-red-400 text-sm font-medium mb-4 text-center";
-                btnCapture.disabled = false;
-                return;
-            }
-
-            // Peringatan jika deteksi tidak didukung namun gambar tetap diambil
-            if (faceCount === -1) {
-                console.log("Validasi otomatis tidak didukung, menggunakan sistem kepercayaan (trust system).");
-            }
-
-            // Konversi ke base64 (format JPEG dengan quality 0.5 agar sangat kecil ~10KB)
-            const base64Photo = canvas.toDataURL('image/jpeg', 0.5);
-
-            // Terapkan data dan perbarui form UI
-            if (currentPhotoTarget === 'harian') {
-                document.getElementById('form-photo-harian').value = base64Photo;
-                setStatusHarian('Hadir', 'btn-status-hadir');
-            } else if (currentPhotoTarget === 'kelas') {
-                document.getElementById('form-photo-kelas').value = base64Photo;
-                setKehadiranKelas('Hadir', 'btn-hadir');
-            }
-
-            closeCamera();
         };
 
         // --- Edit Modal Management ---
@@ -1361,15 +1234,10 @@
             const jamMasuk = document.getElementById('form-jam-masuk').value;
             const jamPulang = document.getElementById('form-jam-pulang').value;
             const statusHarian = document.getElementById('form-status-kehadiran').value;
-            const photoData = document.getElementById('form-photo-harian').value;
 
             // Validasi: Minimal satu dari Jam Masuk, Jam Pulang, atau Status Izin/Sakit harus diisi
             if (!jamMasuk && !jamPulang && statusHarian === 'Hadir') {
                 showModal("Peringatan", "Silakan isi Jam Masuk, Jam Pulang, atau pilih status Izin/Sakit terlebih dahulu sebelum menyimpan.");
-                return;
-            }
-            if (statusHarian === 'Hadir' && !photoData) {
-                showModal("Peringatan Foto", "Anda memilih status Hadir tetapi bukti foto belum terekam. Silakan klik tombol 'Hadir' untuk mengambil foto kembali.");
                 return;
             }
 
@@ -1391,7 +1259,6 @@
                     if (jamMasuk) data.jamMasuk = jamMasuk;
                     if (jamPulang) data.jamPulang = jamPulang;
                     data.statusHarian = statusHarian;
-                    if (photoData) data.photo = photoData;
 
                     const docRef = doc(db, COLLECTION_PATH, docId);
                     await setDoc(docRef, data, { merge: true });
@@ -1404,8 +1271,7 @@
                     name: name,
                     jamMasuk: jamMasuk || '',
                     jamPulang: jamPulang || '',
-                    statusHarian: statusHarian,
-                    photo: photoData || '' // Kirim ke spreadsheet
+                    statusHarian: statusHarian
                 });
                 // ----------------------------------------------
 
@@ -1458,7 +1324,6 @@
             const jamKe = document.getElementById('form-jam-ke').value.trim();
             const tercapai = document.getElementById('form-tercapai').value;
             const kehadiranKelas = document.getElementById('form-kehadiran-kelas').value;
-            const photoData = document.getElementById('form-photo-kelas').value;
 
             // Validasi: Pastikan semua data terisi
             if (!date || !name || !mapel || !kelas || !jamKe || !tercapai || !kehadiranKelas) {
@@ -1471,10 +1336,6 @@
                 const record = allAttendanceData.find(d => d.date === date && d.name === name);
                 if (!record || record.statusHarian !== 'Hadir') {
                     showModal("Tidak Diizinkan", "Data gagal disimpan. Guru belum mengisi Absensi Harian atau berstatus Izin/Sakit.");
-                    return;
-                }
-                if (!photoData) {
-                    showModal("Peringatan Foto", "Bukti foto dengan siswa belum terekam. Silakan klik tombol 'Hadir' kembali untuk mengambil foto.");
                     return;
                 }
             }
@@ -1490,7 +1351,6 @@
                 jamKe: jamKe,
                 tercapai: tercapai,
                 kehadiranKelas: kehadiranKelas,
-                photo: photoData,
                 timestamp: Date.now() // untuk memastikan urutan tidak acak
             };
 
@@ -1518,8 +1378,7 @@
                     kelas: kelas,
                     jamKe: jamKe,
                     tercapai: tercapai,
-                    kehadiranKelas: kehadiranKelas,
-                    photo: photoData || ''
+                    kehadiranKelas: kehadiranKelas
                 });
                 // ----------------------------------------------
 
