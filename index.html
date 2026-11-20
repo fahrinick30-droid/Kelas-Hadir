@@ -627,13 +627,6 @@
         window.handleHadirClick = function(target) {
             if (target === 'kelas') {
                 if (!isKetuntasanFieldsComplete()) return;
-                const date = document.getElementById('ket-date').value;
-                const name = document.getElementById('ket-name').value;
-                const record = allAttendanceData.find(d => d.date === date && d.name === name);
-                if (!record || record.statusHarian !== 'Hadir') {
-                    showModal("Akses Ditolak", "Anda tidak dapat memilih 'Hadir' di kelas karena Anda belum mengisi Absensi Harian atau berstatus Izin/Sakit hari ini.");
-                    return;
-                }
             }
             openCamera(target);
         };
@@ -835,12 +828,23 @@
         // Menangani pemilihan nama guru dan pengisian jadwal otomatis
         window.handleKetNameChange = function() {
             const name = document.getElementById('ket-name').value;
+            const date = document.getElementById('ket-date').value;
             const badge = document.getElementById('auto-schedule-badge');
             const badgeText = document.getElementById('auto-schedule-text');
 
             if (!name) {
                 if (badge) badge.classList.add('hidden');
                 updateAvailableJamKe();
+                return;
+            }
+
+            // Validasi: Cek apakah guru sudah absen harian dengan status Hadir hari ini
+            const record = allAttendanceData.find(d => d.date === date && d.name === name);
+            if (!record || record.statusHarian !== 'Hadir') {
+                showModal("Akses Ditolak", "Anda tidak dapat mengisi Ketuntasan Mengajar karena Anda belum mengisi Absensi Harian (Masuk) atau berstatus Izin/Sakit hari ini.");
+                document.getElementById('ket-name').value = ""; // Reset pilihan nama
+                if (badge) badge.classList.add('hidden');
+                resetAutoSchedule(); // Bersihkan form lainnya
                 return;
             }
 
