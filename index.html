@@ -235,21 +235,12 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Jam Ke-</label>
-                        <select id="form-jam-ke" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                            <option value="">-- Pilih Jam --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tercapai (Y/T)</label>
-                        <select id="form-tercapai" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                            <option value="">Pilih...</option>
-                            <option value="Y">Ya (Y)</option>
-                            <option value="T">Tidak (T)</option>
-                        </select>
-                    </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Jam Ke-</label>
+                    <select id="form-jam-ke" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">-- Pilih Jam --</option>
+                    </select>
+                    <input type="hidden" id="form-tercapai" value="Y">
                 </div>
 
                 <div>
@@ -536,10 +527,9 @@
             const tingkat = document.getElementById('form-tingkat').value;
             const kelas = document.getElementById('form-kelas').value;
             const jamKe = document.getElementById('form-jam-ke').value;
-            const tercapai = document.getElementById('form-tercapai').value;
 
-            if (!date || !name || !mapel || !tingkat || !kelas || !jamKe || !tercapai) {
-                showModal("Data Belum Lengkap", "Silakan lengkapi semua data di atas (Tanggal, Nama, Mata Pelajaran, Tingkat, Kelas, Jam Ke-, dan Tercapai) terlebih dahulu sebelum memilih status kehadiran.");
+            if (!date || !name || !mapel || !tingkat || !kelas || !jamKe) {
+                showModal("Data Belum Lengkap", "Silakan lengkapi semua data di atas (Tanggal, Nama, Mata Pelajaran, Tingkat, Kelas, dan Jam Ke-) terlebih dahulu sebelum memilih status kehadiran.");
                 return false;
             }
             return true;
@@ -1654,7 +1644,7 @@
                 document.getElementById('form-tingkat').value = "";
                 document.getElementById('form-kelas').value = "";
                 document.getElementById('form-jam-ke').value = "";
-                document.getElementById('form-tercapai').value = "";
+                document.getElementById('form-tercapai').value = "Y";
                 document.getElementById('ket-name').value = "";
                 
                 // Reset buttons & perbarui opsi jam ke-
