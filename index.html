@@ -1,10 +1,953 @@
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Absensi Guru & Staf SMPN 1 Situraja</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .spreadsheet-table th, .spreadsheet-table td {
+            border: 1px solid #cbd5e1;
+            padding: 0.5rem;
+            text-align: center;
+        }
+        .spreadsheet-table th {
+            background-color: #e2e8f0;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .spreadsheet-table td.text-left { text-align: left; }
+        /* Print styling */
+        @media print {
+            body { background-color: white; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .spreadsheet-table th { background-color: #e2e8f0 !important; -webkit-print-color-adjust: exact; }
+            #monitor-view { padding: 0; margin: 0; box-shadow: none; border: none; }
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col">
+
+    <!-- Header Section -->
+    <header class="bg-blue-600 text-white p-4 shadow-md no-print">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-1 rounded-full flex-shrink-0">
+                    <img id="header-logo" src="https://placehold.co/200x200/2563eb/ffffff?text=Logo" alt="Logo SMPN 1 Situraja" class="w-10 h-10 object-contain rounded-full">
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">SMP NEGERI 1 SITURAJA</h1>
+                    <p class="text-xs text-blue-200">Ketuntasan Pembelajaran Guru & Staf</p>
+                </div>
+            </div>
+            <!-- Menyembunyikan status koneksi dengan menambahkan class 'hidden' -->
+            <div id="auth-status" class="hidden text-sm font-medium bg-blue-700 px-3 py-1 rounded">
+                Menghubungkan...
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow p-4 overflow-hidden flex flex-col max-w-7xl mx-auto w-full">
+        
+        <!-- Loading State -->
+        <div id="loading-view" class="flex-grow flex items-center justify-center">
+            <div class="text-center">
+                <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-gray-600">Memuat Sistem Database...</p>
+            </div>
+        </div>
+
+        <!-- Role Selection -->
+        <div id="role-view" class="hidden flex-grow flex items-center justify-center">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
+                <button onclick="showView('teacher-view')" class="hidden bg-white p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-blue-500 hover:shadow-md transition-all flex flex-col items-center">
+                    <svg class="w-14 h-14 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <h2 class="text-lg font-bold text-gray-800 text-center">Absensi Harian</h2>
+                    <p class="text-gray-500 mt-1 text-center text-xs">Masuk & Pulang</p>
+                </button>
+                <button onclick="showView('ketuntasan-view')" class="bg-white p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-yellow-500 hover:shadow-md transition-all flex flex-col items-center">
+                    <svg class="w-14 h-14 text-yellow-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <h2 class="text-lg font-bold text-gray-800 text-center">Ketuntasan</h2>
+                    <p class="text-gray-500 mt-1 text-center text-xs">Kelas, Jam, Mapel</p>
+                </button>
+                <button onclick="showView('monitor-view')" class="hidden bg-white p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-green-500 hover:shadow-md transition-all flex flex-col items-center">
+                    <svg class="w-14 h-14 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <h2 class="text-lg font-bold text-gray-800 text-center">Monitor Kepala</h2>
+                    <p class="text-gray-500 mt-1 text-center text-xs">Laporan Spreadsheet</p>
+                </button>
+                <button onclick="showView('admin-view')" class="hidden bg-white p-6 rounded-xl shadow-sm border-2 border-transparent hover:border-purple-500 hover:shadow-md transition-all flex flex-col items-center">
+                    <svg class="w-14 h-14 text-purple-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <h2 class="text-lg font-bold text-gray-800 text-center">Fitur Admin</h2>
+                    <p class="text-gray-500 mt-1 text-center text-xs">Kelola Data Master</p>
+                </button>
+            </div>
+        </div>
+
+        <!-- Teacher Input View (Absensi Harian) -->
+        <div id="teacher-view" class="hidden max-w-2xl mx-auto w-full bg-white rounded-xl shadow-sm p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b pb-2">
+                <h2 class="text-2xl font-bold text-gray-800">Formulir Kehadiran Harian</h2>
+                <div class="flex items-center space-x-2">
+                    <button onclick="showView('ketuntasan-view')" class="text-yellow-600 hover:text-yellow-800 flex items-center text-sm font-medium bg-yellow-50 px-3 py-1.5 rounded-lg transition-colors border border-yellow-100">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Ketuntasan
+                    </button>
+                    <button onclick="showView('monitor-view')" class="hidden text-green-600 hover:text-green-800 flex items-center text-sm font-medium bg-green-50 px-3 py-1.5 rounded-lg transition-colors border border-green-100">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Monitor
+                    </button>
+                    <button onclick="showView('admin-view')" class="hidden text-purple-600 hover:text-purple-800 flex items-center text-sm font-medium bg-purple-50 px-3 py-1.5 rounded-lg transition-colors border border-purple-100">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Admin
+                    </button>
+                </div>
+            </div>
+            
+            <form id="attendance-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal & Waktu (Otomatis)</label>
+                    <input type="hidden" id="form-date">
+                    <div class="w-full bg-gray-100 border border-gray-300 rounded-lg p-3 flex flex-wrap items-center justify-between gap-2 select-none cursor-not-allowed">
+                        <div class="flex items-center space-x-2 text-gray-800 font-semibold text-sm sm:text-base">
+                            <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <span class="digital-date-display">Memuat tanggal...</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5 bg-gray-900 text-green-400 font-mono font-bold px-3 py-1 rounded-md text-sm sm:text-base tracking-wider shadow-inner">
+                            <svg class="w-4 h-4 text-green-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span class="digital-clock-display">00:00:00</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Guru / Staf</label>
+                    <select id="form-name" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">-- Pilih Nama --</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Jam Masuk</label>
+                        <div class="flex">
+                            <input type="time" step="1" id="form-jam-masuk" class="w-full border border-gray-300 rounded-l-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <button type="button" onclick="setJam('form-jam-masuk')" class="bg-blue-100 text-blue-700 px-3 rounded-r-lg hover:bg-blue-200 border border-l-0 border-blue-200 text-sm font-medium transition-colors">Sekarang</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Jam Pulang</label>
+                        <div class="flex">
+                            <input type="time" step="1" id="form-jam-pulang" class="w-full border border-gray-300 rounded-l-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <button type="button" onclick="setJam('form-jam-pulang')" class="bg-blue-100 text-blue-700 px-3 rounded-r-lg hover:bg-blue-200 border border-l-0 border-blue-200 text-sm font-medium transition-colors">Sekarang</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status Kehadiran Hari Ini</label>
+                    <input type="hidden" id="form-status-kehadiran" value="Hadir">
+                    <input type="hidden" id="form-photo-harian" value="">
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <button type="button" id="btn-status-hadir" onclick="handleHadirClick('harian')" class="bg-gray-800 text-white border-2 border-gray-800 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full">Hadir</button>
+                        <button type="button" id="btn-status-izin" onclick="setStatusHarian('Izin', 'btn-status-izin')" class="border-2 border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full">Izin</button>
+                        <button type="button" id="btn-status-sakit" onclick="setStatusHarian('Sakit', 'btn-status-sakit')" class="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full">Sakit</button>
+                    </div>
+                    <!-- Indikator Foto Terambil (Absensi Harian) -->
+                    <div id="photo-indicator-harian" class="hidden mt-3 p-2.5 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                        <div class="flex items-center space-x-2.5">
+                            <img id="thumb-photo-harian" src="" alt="Bukti Foto" class="w-10 h-10 object-cover rounded border border-green-300">
+                            <div>
+                                <p class="text-xs font-bold text-green-700 flex items-center">
+                                    <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    Foto Bukti Sudah Terambil
+                                </p>
+                                <p class="text-[11px] text-green-600">Siap disimpan bersama data kehadiran</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="handleHadirClick('harian')" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline px-2 py-1">Foto Ulang</button>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t mt-6">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow transition-colors">
+                        Simpan Jam Kehadiran
+                    </button>
+                </div>
+                
+                <div id="form-message" class="hidden p-3 rounded-lg text-sm text-center font-medium mt-2"></div>
+            </form>
+        </div>
+        
+        <!-- Ketuntasan View -->
+        <div id="ketuntasan-view" class="hidden max-w-2xl mx-auto w-full bg-white rounded-xl shadow-sm p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b pb-2">
+                <h2 class="text-2xl font-bold text-gray-800">Formulir Ketuntasan</h2>
+                <div class="flex items-center space-x-2">
+                    <button onclick="showView('teacher-view')" class="hidden text-blue-600 hover:text-blue-800 flex items-center text-sm font-medium bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-blue-100">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Absensi
+                    </button>
+                    <button onclick="showView('monitor-view')" class="hidden text-green-600 hover:text-green-800 flex items-center text-sm font-medium bg-green-50 px-3 py-1.5 rounded-lg transition-colors border border-green-100">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Monitor
+                    </button>
+                    <button onclick="showView('admin-view')" class="hidden text-purple-600 hover:text-purple-800 flex items-center text-sm font-medium bg-purple-50 px-3 py-1.5 rounded-lg transition-colors border border-purple-100">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Admin
+                    </button>
+                </div>
+            </div>
+            
+            <form id="ketuntasan-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal & Waktu (Otomatis)</label>
+                    <input type="hidden" id="ket-date">
+                    <div class="w-full bg-gray-100 border border-gray-300 rounded-lg p-3 flex flex-wrap items-center justify-between gap-2 select-none cursor-not-allowed">
+                        <div class="flex items-center space-x-2 text-gray-800 font-semibold text-sm sm:text-base">
+                            <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <span class="digital-date-display">Memuat tanggal...</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5 bg-gray-900 text-green-400 font-mono font-bold px-3 py-1 rounded-md text-sm sm:text-base tracking-wider shadow-inner">
+                            <svg class="w-4 h-4 text-green-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span class="digital-clock-display">00:00:00</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Guru / Staf</label>
+                    <select id="ket-name" onchange="updateAvailableJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">-- Pilih Nama --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Mata Pelajaran</label>
+                    <select id="form-mapel" onchange="updateAvailableJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">-- Pilih Mata Pelajaran --</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tingkat Kelas</label>
+                        <select id="form-tingkat" onchange="filterKelas()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <option value="">-- Pilih Tingkat --</option>
+                            <option value="7">Kelas 7</option>
+                            <option value="8">Kelas 8</option>
+                            <option value="9">Kelas 9</option>
+                            <option value="lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Rombel / Kelas</label>
+                        <select id="form-kelas" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <option value="">-- Pilih Kelas --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Jam Pelajaran (Otomatis Sesuai Real-Time)</label>
+                    <select id="form-durasi-jam" onchange="calculateAutoJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">-- Pilih Jumlah Jam --</option>
+                        <option value="1">1 Jam Pelajaran (40 Menit)</option>
+                        <option value="2">2 Jam Pelajaran (80 Menit)</option>
+                        <option value="3">3 Jam Pelajaran (120 Menit)</option>
+                        <option value="4">4 Jam Pelajaran (160 Menit)</option>
+                        <option value="5">5 Jam Pelajaran (200 Menit)</option>
+                    </select>
+                    <input type="hidden" id="form-jam-ke" value="">
+                    <div id="auto-jam-preview" class="hidden mt-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs sm:text-sm text-blue-800 font-semibold flex items-center justify-between">
+                        <span id="auto-jam-label">Jam Ke: -</span>
+                        <span id="auto-jam-time" class="font-mono bg-blue-100 px-2 py-0.5 rounded text-blue-900">07:00 - 07:40</span>
+                    </div>
+                    <input type="hidden" id="form-tercapai" value="Y">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kehadiran Guru di Kelas</label>
+                    <input type="hidden" id="form-kehadiran-kelas" value="">
+                    <input type="hidden" id="form-photo-kelas" value="">
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <button type="button" id="btn-hadir" onclick="handleHadirClick('kelas')" class="border-2 border-blue-500 text-blue-600 rounded-lg p-2 font-semibold hover:bg-blue-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full">Hadir</button>
+                        <button type="button" id="btn-tugas" onclick="handleKehadiranKelasClick('Tidak Hadir Ada Tugas', 'btn-tugas')" class="border-2 border-yellow-500 text-yellow-600 rounded-lg p-2 font-semibold hover:bg-yellow-50 transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight">Tidak Hadir<br>Ada Tugas</button>
+                        <button type="button" id="btn-alpa" onclick="handleKehadiranKelasClick('Tidak Hadir', 'btn-alpa')" class="border-2 border-red-500 text-red-600 rounded-lg p-2 font-semibold hover:bg-red-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full">Tidak Hadir</button>
+                    </div>
+                    <!-- Indikator Foto Terambil (Ketuntasan Kelas) -->
+                    <div id="photo-indicator-kelas" class="hidden mt-3 p-2.5 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                        <div class="flex items-center space-x-2.5">
+                            <img id="thumb-photo-kelas" src="" alt="Bukti Foto Kelas" class="w-10 h-10 object-cover rounded border border-green-300">
+                            <div>
+                                <p class="text-xs font-bold text-green-700 flex items-center">
+                                    <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    Foto Bukti Sudah Terambil
+                                </p>
+                                <p class="text-[11px] text-green-600">Siap disimpan bersama data ketuntasan</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="handleHadirClick('kelas')" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline px-2 py-1">Foto Ulang</button>
+                    </div>
+                </div>
+                
+                <div id="ket-message" class="hidden p-3 rounded-lg text-sm text-center font-medium mt-2"></div>
+            </form>
+        </div>
+        
+        <!-- Admin View -->
+        <div id="admin-view" class="hidden max-w-4xl mx-auto w-full bg-white rounded-xl shadow-sm p-6 overflow-y-auto">
+            <button onclick="showView('ketuntasan-view')" class="text-blue-600 hover:text-blue-800 mb-4 flex items-center text-sm font-medium">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Kembali
+            </button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Panel Admin - Pengelolaan Data Master</h2>
+
+            <!-- Grid Admin Panels -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- Kelola Guru/Staf -->
+                <div class="border rounded-lg p-4 bg-gray-50 flex flex-col h-80">
+                    <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        Guru & Staf TU
+                    </h3>
+                    <div class="flex space-x-2 mb-3">
+                        <input type="text" id="admin-input-guru" placeholder="Nama Guru / Staf..." class="flex-grow border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500">
+                        <button onclick="addMasterItem('guru', 'admin-input-guru')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium">Tambah</button>
+                    </div>
+                    <div id="admin-list-guru" class="flex-grow overflow-y-auto bg-white border rounded p-2 divide-y text-sm"></div>
+                </div>
+
+                <!-- Kelola Mata Pelajaran -->
+                <div class="border rounded-lg p-4 bg-gray-50 flex flex-col h-80">
+                    <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        Mata Pelajaran
+                    </h3>
+                    <div class="flex space-x-2 mb-3">
+                        <input type="text" id="admin-input-mapel" placeholder="Nama Mata Pelajaran..." class="flex-grow border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-yellow-500">
+                        <button onclick="addMasterItem('mapel', 'admin-input-mapel')" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium">Tambah</button>
+                    </div>
+                    <div id="admin-list-mapel" class="flex-grow overflow-y-auto bg-white border rounded p-2 divide-y text-sm"></div>
+                </div>
+
+                <!-- Kelola Kelas -->
+                <div class="border rounded-lg p-4 bg-gray-50 flex flex-col h-80">
+                    <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                        Daftar Kelas
+                    </h3>
+                    <div class="flex space-x-2 mb-3">
+                        <input type="text" id="admin-input-kelas" placeholder="Misal: 7A, 8B..." class="flex-grow border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-500">
+                        <button onclick="addMasterItem('kelas', 'admin-input-kelas')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium">Tambah</button>
+                    </div>
+                    <div id="admin-list-kelas" class="flex-grow overflow-y-auto bg-white border rounded p-2 divide-y text-sm"></div>
+                </div>
+
+                <!-- Kelola Jam Ke- -->
+                <div class="border rounded-lg p-4 bg-gray-50 flex flex-col h-80">
+                    <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Daftar Jam Ke-
+                    </h3>
+                    <div class="flex space-x-2 mb-3">
+                        <input type="text" id="admin-input-jamke" placeholder="Misal: 1-2, 3-4..." class="flex-grow border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-purple-500">
+                        <button onclick="addMasterItem('jamke', 'admin-input-jamke')" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium">Tambah</button>
+                    </div>
+                    <div id="admin-list-jamke" class="flex-grow overflow-y-auto bg-white border rounded p-2 divide-y text-sm"></div>
+                </div>
+
+                <!-- Pengaturan Logo -->
+                <div class="border rounded-lg p-4 bg-gray-50 flex flex-col h-80">
+                    <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        Logo Aplikasi & Laporan
+                    </h3>
+                    <p class="text-xs text-gray-500 mb-2">Ganti logo pada perangkat ini (Maks 2MB).</p>
+                    <div class="flex flex-col space-y-2">
+                        <input type="file" id="admin-input-logo" accept="image/*" class="border rounded-lg px-2 py-1.5 text-sm outline-none bg-white">
+                        <button onclick="saveLogo()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-sm">Simpan Logo Baru</button>
+                        <button onclick="resetLogo()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">Kembalikan ke Bawaan</button>
+                    </div>
+                    <div class="mt-3 flex-grow flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-white overflow-hidden p-2">
+                        <img src="https://placehold.co/200x200/2563eb/ffffff?text=Logo" id="admin-preview-logo" class="max-w-full max-h-full object-contain">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Principal Monitor View -->
+        <div id="monitor-view" class="hidden w-full h-full flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="p-4 border-b flex flex-wrap justify-between items-center bg-gray-50 no-print">
+                <div class="flex items-center space-x-4 mb-2 sm:mb-0">
+                    <h2 class="text-xl font-bold text-gray-800">Monitor Kehadiran</h2>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="showView('teacher-view')" class="hidden text-blue-600 hover:text-blue-800 flex items-center text-sm font-medium bg-blue-50 px-3 py-1.5 rounded transition-colors border border-blue-100 shadow-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Absensi Harian
+                    </button>
+                    <button onclick="showView('ketuntasan-view')" class="text-yellow-600 hover:text-yellow-800 flex items-center text-sm font-medium bg-yellow-50 px-3 py-1.5 rounded transition-colors border border-yellow-100 shadow-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Ketuntasan
+                    </button>
+                    <select id="monitor-mode" onchange="toggleMonitorMode()" class="border border-gray-300 rounded p-1.5 text-sm outline-none focus:border-blue-500 font-medium">
+                        <option value="harian">Harian</option>
+                        <option value="bulanan">Bulanan</option>
+                    </select>
+                    <input type="date" id="monitor-date" class="border border-gray-300 rounded p-1.5 text-sm outline-none focus:border-blue-500">
+                    <input type="month" id="monitor-month" class="hidden border border-gray-300 rounded p-1.5 text-sm outline-none focus:border-blue-500">
+                    <button onclick="downloadExcel()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm flex items-center shadow-sm font-medium transition-colors">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        Unduh Excel
+                    </button>
+                    <button onclick="downloadPDF()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm flex items-center shadow-sm font-medium transition-colors">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Unduh PDF
+                    </button>
+                    <button onclick="showView('admin-view')" class="hidden text-purple-600 hover:text-purple-800 flex items-center text-sm font-medium bg-purple-50 px-3 py-1.5 rounded transition-colors border border-purple-100 shadow-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Admin
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-grow overflow-auto p-4">
+                <div id="pdf-content" class="bg-white">
+                    <!-- Header khusus untuk hasil PDF -->
+                    <div id="pdf-header" class="text-center mb-6 pt-2 hidden">
+                        <img id="pdf-logo" src="https://placehold.co/200x200/2563eb/ffffff?text=Logo" alt="Logo Laporan" class="w-20 h-20 mx-auto mb-3 object-contain">
+                        <h2 class="text-xl font-bold uppercase text-gray-900">Laporan Rekapitulasi Kehadiran</h2>
+                        <h3 class="text-lg font-bold uppercase text-gray-800">SMP Negeri 1 Situraja</h3>
+                        <p class="text-sm mt-2 font-medium text-gray-700">Periode: <span id="print-date"></span></p>
+                    </div>
+                    
+                    <table class="w-full spreadsheet-table text-sm">
+                        <thead id="thead-harian">
+                            <tr>
+                                <th rowspan="2" class="w-12">No</th>
+                                <th rowspan="2" class="w-64 text-left">Nama</th>
+                                <th colspan="5">Kehadiran Di Sekolah</th>
+                                <th rowspan="2" class="w-32">KET.</th>
+                            </tr>
+                            <tr>
+                                <th class="w-24">Jam Masuk</th>
+                                <th class="w-24">Kelas</th>
+                                <th class="w-24">Jam Ke-</th>
+                                <th class="w-24">Tercapai (Y/T)</th>
+                                <th class="w-24">Jam Pulang</th>
+                            </tr>
+                        </thead>
+                        <thead id="thead-bulanan" class="hidden">
+                            <tr>
+                                <th class="w-12">No</th>
+                                <th class="w-64 text-left">Nama</th>
+                                <th class="w-24 text-blue-800">Jml Hadir</th>
+                                <th class="w-24 text-purple-800">Jml Izin</th>
+                                <th class="w-24 text-orange-800">Jml Sakit</th>
+                                <th class="w-24 text-yellow-800">Tugas Luar</th>
+                                <th class="w-32 text-green-800">Total Kelas Diajar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monitor-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Custom Alert Modal -->
+    <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl transform transition-all">
+            <h3 id="modal-title" class="text-lg font-bold text-gray-900 mb-2">Pesan</h3>
+            <p id="modal-message" class="text-gray-600 mb-6"></p>
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Data Master Modal -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl transform transition-all">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Ubah Data Master</h3>
+            <input type="hidden" id="edit-type">
+            <input type="hidden" id="edit-old-name">
+            <input type="text" id="edit-new-name" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-6" placeholder="Masukkan nama baru...">
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeEditModal()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">Batal</button>
+                <button onclick="submitEditMaster()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Done Overlay Modal (Tengah Layar) -->
+    <div id="done-overlay" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-xs w-full mx-4 shadow-2xl flex flex-col items-center justify-center text-center transform transition-all">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h2 class="text-3xl font-extrabold text-gray-900 tracking-wide">Done</h2>
+            <p class="text-sm text-gray-500 mt-1">Data berhasil tersimpan</p>
+        </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div id="camera-modal" class="fixed inset-0 bg-black flex flex-col z-[60] hidden">
+        <div class="p-4 flex justify-between items-center bg-gray-900 text-white">
+            <h3 class="text-lg font-bold">Ambil Bukti Kehadiran</h3>
+            <button onclick="closeCamera()" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 font-medium">Batal</button>
+        </div>
+        <div class="flex-grow relative flex items-center justify-center bg-black overflow-hidden">
+            <video id="camera-video" class="max-w-full max-h-full object-cover w-full h-full" playsinline autoplay muted></video>
+            <div id="camera-guideline" class="absolute inset-0 border-4 border-dashed border-white opacity-30 pointer-events-none m-8 rounded-xl"></div>
+        </div>
+        <div class="p-6 bg-gray-900 flex flex-col items-center">
+            <p id="camera-status" class="text-yellow-400 text-sm font-medium mb-4 text-center">Menyiapkan kamera...</p>
+            <button id="btn-capture" onclick="capturePhoto()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-transform transform active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span>Ambil Foto Selfie dan Siswa</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // === Default Data Initializers ===
+        const defaultGuru = []; // Dikosongkan agar wajib diisi dari Panel Admin
+        const defaultMapel = []; // Dikosongkan agar wajib diisi dari Panel Admin
+        const defaultKelas = ["7A", "7B", "7C", "8A", "8B", "8C", "9A", "9B", "9C"];
+        const defaultJamKe = ["1-2", "3-4", "5-6", "7-8"];
+
+        // Dynamic State Arrays
+        let daftarGuru = [...defaultGuru];
+        let daftarMapel = [...defaultMapel];
+        let daftarKelas = [...defaultKelas];
+        let daftarJamKe = [...defaultJamKe];
+        let currentPhotoTarget = ''; // Menyimpan konteks tombol ('harian' atau 'kelas')
+
+        // Helper Functions
+        window.setJam = function(inputId) {
+            const now = new Date();
+            const jamStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':');
+            document.getElementById(inputId).value = jamStr;
+        };
+
+        // Validasi kelengkapan data sebelum memilih status kehadiran di kelas
+        function isKetuntasanFieldsComplete() {
+            const date = document.getElementById('ket-date').value;
+            const name = document.getElementById('ket-name').value;
+            const mapel = document.getElementById('form-mapel').value;
+            const tingkat = document.getElementById('form-tingkat').value;
+            const kelas = document.getElementById('form-kelas').value;
+            const durasiJam = document.getElementById('form-durasi-jam').value;
+            const jamKe = document.getElementById('form-jam-ke').value;
+
+            if (!date || !name || !mapel || !tingkat || !kelas || !durasiJam || !jamKe) {
+                showModal("Data Belum Lengkap", "Silakan lengkapi semua data di atas (Tanggal, Nama, Mata Pelajaran, Tingkat, Kelas, dan Jumlah Jam Pelajaran) terlebih dahulu sebelum memilih status kehadiran.");
+                return false;
+            }
+            return true;
+        }
+
+        window.handleHadirClick = function(target) {
+            if (target === 'kelas') {
+                if (!isKetuntasanFieldsComplete()) return;
+                const date = document.getElementById('ket-date').value;
+                const name = document.getElementById('ket-name').value;
+                const record = allAttendanceData.find(d => d.date === date && d.name === name);
+                if (!record || record.statusHarian !== 'Hadir') {
+                    showModal("Akses Ditolak", "Anda tidak dapat memilih 'Hadir' di kelas karena Anda belum mengisi Absensi Harian atau berstatus Izin/Sakit hari ini.");
+                    return;
+                }
+            }
+            openCamera(target);
+        };
+
+        window.handleKehadiranKelasClick = async function(val, btnId) {
+            if (!isKetuntasanFieldsComplete()) return;
+            setKehadiranKelas(val, btnId);
+            await saveKetuntasanData();
+        };
+
+        window.setStatusHarian = function(status, btnId) {
+            document.getElementById('form-status-kehadiran').value = status;
+            
+            const btnHadirHarian = document.getElementById('btn-status-hadir');
+            btnHadirHarian.className = "border-2 border-gray-800 text-gray-800 hover:bg-gray-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+            btnHadirHarian.innerText = "Hadir";
+            document.getElementById('btn-status-izin').className = "border-2 border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+            document.getElementById('btn-status-sakit').className = "border-2 border-orange-500 text-orange-600 hover:bg-orange-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+
+            if (status === 'Hadir') {
+                btnHadirHarian.className = "bg-green-600 text-white border-2 border-green-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+                btnHadirHarian.innerText = "Hadir ✓";
+            } else if (status === 'Izin') {
+                document.getElementById('btn-status-izin').className = "bg-purple-600 text-white border-2 border-purple-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+                document.getElementById('form-photo-harian').value = '';
+                document.getElementById('photo-indicator-harian').classList.add('hidden');
+            } else if (status === 'Sakit') {
+                document.getElementById('btn-status-sakit').className = "bg-orange-500 text-white border-2 border-orange-500 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+                document.getElementById('form-photo-harian').value = '';
+                document.getElementById('photo-indicator-harian').classList.add('hidden');
+            }
+        };
+
+        // Helper format menit dari 00:00 ke HH:MM
+        function formatMinutesToHHMM(totalMinutes) {
+            const h = Math.floor(totalMinutes / 60) % 24;
+            const m = totalMinutes % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        // Hitung Jam Ke- Otomatis berdasarkan Real-Time (Mulai 07:00, 40 menit per jam)
+        window.calculateAutoJamKe = function() {
+            const durasiSelect = document.getElementById('form-durasi-jam');
+            const jamKeInput = document.getElementById('form-jam-ke');
+            const previewBox = document.getElementById('auto-jam-preview');
+            const labelEl = document.getElementById('auto-jam-label');
+            const timeEl = document.getElementById('auto-jam-time');
+
+            if (!durasiSelect || !jamKeInput) return;
+
+            const durasi = parseInt(durasiSelect.value, 10);
+            if (!durasi || isNaN(durasi)) {
+                jamKeInput.value = "";
+                if (previewBox) previewBox.classList.add('hidden');
+                return;
+            }
+
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            // Khusus hari Jum'at (getDay() === 5) mulai pukul 07:10 (430 menit), hari lain pukul 07:00 (420 menit)
+            const isFriday = now.getDay() === 5;
+            const startSchoolMinutes = isFriday ? (7 * 60 + 10) : (7 * 60);
+
+            // Tentukan jam ke- awal berdasarkan waktu sekarang
+            // Jika sebelum jam masuk pertama, otomatis dianggap mulai jam ke-1
+            let startPeriod = 1;
+            if (currentMinutes >= startSchoolMinutes) {
+                startPeriod = Math.floor((currentMinutes - startSchoolMinutes) / 40) + 1;
+            }
+
+            // Cek riwayat guru hari ini agar tidak bentrok dengan jam yang sudah terpakai
+            const date = document.getElementById('ket-date').value;
+            const name = document.getElementById('ket-name').value;
+            let maxUsedJam = 0;
+            if (date && name) {
+                const record = allAttendanceData.find(d => d.date === date && d.name === name);
+                if (record && record.sessions && record.sessions.length > 0) {
+                    record.sessions.forEach(s => {
+                        const nums = String(s.jamKe).match(/\d+/g);
+                        if (nums && nums.length > 0) {
+                            const maxVal = Math.max(...nums.map(Number));
+                            if (maxVal > maxUsedJam) maxUsedJam = maxVal;
+                        }
+                    });
+                }
+            }
+
+            // Jika jam ke- saat ini sudah terpakai/lewat oleh guru bersangkutan, geser ke jam berikutnya
+            if (startPeriod <= maxUsedJam) {
+                startPeriod = maxUsedJam + 1;
+            }
+
+            const endPeriod = startPeriod + durasi - 1;
+            const periodStartMin = startSchoolMinutes + (startPeriod - 1) * 40;
+            const periodEndMin = periodStartMin + durasi * 40;
+
+            const rangeJamLabel = durasi === 1 ? `${startPeriod}` : `${startPeriod}-${endPeriod}`;
+            const rangeTimeStr = `${formatMinutesToHHMM(periodStartMin)}-${formatMinutesToHHMM(periodEndMin)}`;
+
+            // Format yang disimpan ke sistem & Spreadsheet: misal "1-2 (07:10-08:30)" pada hari Jum'at
+            jamKeInput.value = `${rangeJamLabel} (${rangeTimeStr})`;
+
+            if (previewBox && labelEl && timeEl) {
+                labelEl.innerText = `Jam Ke-${rangeJamLabel}${isFriday ? ' (Jadwal Jum\'at)' : ''}`;
+                timeEl.innerText = `Pukul ${rangeTimeStr} WIB`;
+                previewBox.classList.remove('hidden');
+            }
+        };
+
+        window.updateAvailableJamKe = function() {
+            // Hitung ulang otomatis setiap kali Tanggal atau Nama Guru berubah
+            if (typeof window.calculateAutoJamKe === 'function') {
+                window.calculateAutoJamKe();
+            }
+        };
+
+        window.setKehadiranKelas = function(val, btnId) {
+            document.getElementById('form-kehadiran-kelas').value = val;
+            
+            // Reset styles
+            const btnHadirKelas = document.getElementById('btn-hadir');
+            btnHadirKelas.className = "border-2 border-blue-500 text-blue-600 hover:bg-blue-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+            btnHadirKelas.innerText = "Hadir";
+            document.getElementById('btn-tugas').className = "border-2 border-yellow-500 text-yellow-600 hover:bg-yellow-50 rounded-lg p-2 font-semibold transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight";
+            document.getElementById('btn-alpa').className = "border-2 border-red-500 text-red-600 hover:bg-red-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+
+            // Active button highlight
+            if (val === 'Hadir') {
+                btnHadirKelas.className = "bg-green-600 text-white border-2 border-green-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+                btnHadirKelas.innerText = "Hadir ✓";
+            } else if (val === 'Tidak Hadir Ada Tugas') {
+                document.getElementById('btn-tugas').className = "bg-yellow-500 text-white border-2 border-yellow-500 rounded-lg p-2 font-semibold transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight";
+                document.getElementById('form-photo-kelas').value = ''; // Reset foto
+                document.getElementById('photo-indicator-kelas').classList.add('hidden');
+            } else if (val === 'Tidak Hadir') {
+                document.getElementById('btn-alpa').className = "bg-red-600 text-white border-2 border-red-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+                document.getElementById('form-photo-kelas').value = ''; // Reset foto
+                document.getElementById('photo-indicator-kelas').classList.add('hidden');
+            }
+        };
+
+        window.filterKelas = function() {
+            const tingkat = document.getElementById('form-tingkat').value;
+            const kelasSelect = document.getElementById('form-kelas');
+            
+            if (!kelasSelect) return;
+            
+            kelasSelect.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+            
+            let filteredKelas = [];
+            if (tingkat === '7') {
+                filteredKelas = daftarKelas.filter(k => k.startsWith('7'));
+            } else if (tingkat === '8') {
+                filteredKelas = daftarKelas.filter(k => k.startsWith('8'));
+            } else if (tingkat === '9') {
+                filteredKelas = daftarKelas.filter(k => k.startsWith('9'));
+            } else if (tingkat === 'lainnya') {
+                filteredKelas = daftarKelas.filter(k => !k.startsWith('7') && !k.startsWith('8') && !k.startsWith('9'));
+            } else {
+                filteredKelas = daftarKelas; // Tampilkan semua jika tingkat belum dipilih
+            }
+            
+            filteredKelas.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.text = k;
+                kelasSelect.appendChild(opt);
+            });
+        };
+
+        // === UI Management ===
+        window.showView = function(viewId) {
+            document.getElementById('loading-view').classList.add('hidden');
+            document.getElementById('role-view').classList.add('hidden');
+            document.getElementById('teacher-view').classList.add('hidden');
+            document.getElementById('ketuntasan-view').classList.add('hidden');
+            document.getElementById('monitor-view').classList.add('hidden');
+            document.getElementById('admin-view').classList.add('hidden');
+            
+            document.getElementById(viewId).classList.remove('hidden');
+            
+            if (viewId === 'monitor-view') {
+                renderMonitorTable();
+            } else if (viewId === 'admin-view') {
+                renderAdminLists();
+            }
+        };
+
+        window.showModal = function(title, message) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        };
+
+        window.closeModal = function() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        };
+
+        // --- Camera Modal Management ---
+        window.openCamera = async function(target) {
+            currentPhotoTarget = target;
+            const modal = document.getElementById('camera-modal');
+            const video = document.getElementById('camera-video');
+            const statusText = document.getElementById('camera-status');
+            const btnCapture = document.getElementById('btn-capture');
+
+            modal.classList.remove('hidden');
+            statusText.innerText = "Meminta akses kamera...";
+            statusText.className = "text-yellow-400 text-sm font-medium mb-4 text-center";
+            btnCapture.disabled = true;
+
+            try {
+                // Prioritaskan kamera depan (selfie), tanpa akses galeri (WebRTC native)
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+                video.srcObject = stream;
+                statusText.innerText = "Arahkan kamera agar terlihat Anda dan minimal 2 siswa/rekan.";
+                statusText.className = "text-white text-sm font-medium mb-4 text-center";
+                btnCapture.disabled = false;
+            } catch (err) {
+                statusText.innerText = "Gagal mengakses kamera. Pastikan perangkat memiliki kamera dan izin diberikan pada browser.";
+                statusText.className = "text-red-400 text-sm font-medium mb-4 text-center";
+                console.error(err);
+            }
+        };
+
+        window.closeCamera = function() {
+            const video = document.getElementById('camera-video');
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            document.getElementById('camera-modal').classList.add('hidden');
+        };
+
+        window.capturePhoto = async function() {
+            const video = document.getElementById('camera-video');
+            const statusText = document.getElementById('camera-status');
+            const btnCapture = document.getElementById('btn-capture');
+
+            if (!video.srcObject) return;
+
+            btnCapture.disabled = true;
+            statusText.innerText = "Memproses deteksi wajah...";
+            statusText.className = "text-yellow-400 text-sm font-medium mb-4 text-center";
+
+            // Tangkap frame ke canvas dan di kompres ukurannya
+            const canvas = document.createElement('canvas');
+            const targetWidth = 320; // Kompresi kuat agar muat di Google Sheet
+            canvas.width = targetWidth; 
+            canvas.height = (video.videoHeight / video.videoWidth) * targetWidth;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Deteksi Wajah (Menggunakan native FaceDetector eksperimental jika ada)
+            let faceCount = 0;
+            if ('FaceDetector' in window) {
+                try {
+                    const detector = new FaceDetector({ fastMode: true });
+                    const faces = await detector.detect(canvas);
+                    faceCount = faces.length;
+                } catch (e) {
+                    console.warn("Face detection API error", e);
+                    faceCount = -1; // Fallback 
+                }
+            } else {
+                faceCount = -1; // Fallback jika browser (seperti iOS Safari) belum support
+            }
+
+            // Validasi jumlah wajah (Guru + minimal 2 siswa = 3)
+            if (faceCount !== -1 && faceCount < 3) {
+                statusText.innerText = `Terdeteksi hanya ${faceCount} wajah. Pastikan ada Anda dan minimal 2 siswa. Silakan jepret ulang.`;
+                statusText.className = "text-red-400 text-sm font-medium mb-4 text-center";
+                btnCapture.disabled = false;
+                return;
+            }
+
+            // Peringatan jika deteksi tidak didukung namun gambar tetap diambil
+            if (faceCount === -1) {
+                console.log("Validasi otomatis tidak didukung, menggunakan sistem kepercayaan (trust system).");
+            }
+
+            // Konversi ke base64 (format JPEG dengan quality 0.5 agar sangat kecil ~10KB)
+            const base64Photo = canvas.toDataURL('image/jpeg', 0.5);
+
+            // Terapkan data dan perbarui form UI
+            if (currentPhotoTarget === 'harian') {
+                document.getElementById('form-photo-harian').value = base64Photo;
+                document.getElementById('thumb-photo-harian').src = base64Photo;
+                document.getElementById('photo-indicator-harian').classList.remove('hidden');
+                setStatusHarian('Hadir', 'btn-status-hadir');
+                closeCamera();
+                showDoneOverlay();
+            } else if (currentPhotoTarget === 'kelas') {
+                document.getElementById('form-photo-kelas').value = base64Photo;
+                document.getElementById('thumb-photo-kelas').src = base64Photo;
+                document.getElementById('photo-indicator-kelas').classList.remove('hidden');
+                setKehadiranKelas('Hadir', 'btn-hadir');
+                closeCamera();
+                await saveKetuntasanData();
+            }
+        };
+
+        window.showDoneOverlay = function() {
+            const overlay = document.getElementById('done-overlay');
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+            }, 2000);
+        };
+
+        // --- Edit Modal Management ---
+        window.openEditModal = function(type, oldName) {
+            document.getElementById('edit-type').value = type;
+            document.getElementById('edit-old-name').value = oldName;
+            document.getElementById('edit-new-name').value = oldName;
+            document.getElementById('edit-modal').classList.remove('hidden');
+            document.getElementById('edit-new-name').focus();
+        };
+
+        window.closeEditModal = function() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        };
+
+        // --- Logo Management ---
+        window.saveLogo = function() {
+            const input = document.getElementById('admin-input-logo');
+            if (input.files && input.files[0]) {
+                // Pengecekan ukuran file (maks 2MB untuk menghindari memori penuh)
+                if (input.files[0].size > 2 * 1024 * 1024) {
+                    showModal("Peringatan", "Ukuran file gambar terlalu besar. Maksimal 2MB.");
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const base64Image = e.target.result;
+                    try {
+                        localStorage.setItem('appLogo', base64Image);
+                        updateAllLogos(base64Image);
+                        showModal("Sukses", "Logo berhasil diperbarui di perangkat ini.");
+                        input.value = ''; // Reset input form
+                    } catch (error) {
+                        showModal("Error", "Gagal menyimpan logo. Memori perangkat penuh.");
+                    }
+                };
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                showModal("Peringatan", "Pilih file gambar terlebih dahulu.");
+            }
+        };
+
+        window.resetLogo = function() {
+            localStorage.removeItem('appLogo');
+            updateAllLogos('https://placehold.co/200x200/2563eb/ffffff?text=Logo');
+            showModal("Sukses", "Logo dikembalikan ke gambar bawaan.");
+        };
+
+        window.updateAllLogos = function(src) {
+            const headerLogo = document.getElementById('header-logo');
+            const pdfLogo = document.getElementById('pdf-logo');
+            const previewLogo = document.getElementById('admin-preview-logo');
+            
+            if (headerLogo) headerLogo.src = src;
+            if (pdfLogo) pdfLogo.src = src;
+            if (previewLogo) previewLogo.src = src;
+        };
+
         // Populate Dropdowns & Datalists
         function updateSelectOptions() {
             const formNameSelect = document.getElementById('form-name');
             const ketNameSelect = document.getElementById('ket-name');
-            const prevFormName = formNameSelect ? formNameSelect.value : '';
-            const prevKetName = ketNameSelect ? ketNameSelect.value : '';
             
             formNameSelect.innerHTML = '<option value="">-- Pilih Nama --</option>';
             ketNameSelect.innerHTML = '<option value="">-- Pilih Nama --</option>';
@@ -21,12 +964,8 @@
                 ketNameSelect.appendChild(opt2);
             });
 
-            if (prevFormName) formNameSelect.value = prevFormName;
-            if (prevKetName) ketNameSelect.value = prevKetName;
-
             // Mapel select
             const mapelSelect = document.getElementById('form-mapel');
-            const prevMapel = mapelSelect ? mapelSelect.value : '';
             mapelSelect.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
             daftarMapel.forEach(m => {
                 const opt = document.createElement('option');
@@ -34,13 +973,10 @@
                 opt.text = m;
                 mapelSelect.appendChild(opt);
             });
-            if (prevMapel) mapelSelect.value = prevMapel;
 
             // Perbarui dropdown kelas jika ada perubahan di Master Data
             if(typeof window.filterKelas === 'function') {
-                const prevKelas = document.getElementById('form-kelas')?.value || '';
                 window.filterKelas();
-                if (prevKelas) document.getElementById('form-kelas').value = prevKelas;
             }
 
             // JamKe select (Sekarang menggunakan durasi otomatis, cukup hitung ulang preview)
@@ -50,16 +986,281 @@
         }
 
         // Set default dates & Real-time Digital Clock (24-Hour Format)
-<!-- ... existing code ... -->
-                // Menarik Master Data & Rekap Data Absensi langsung dari Spreadsheet di latar belakang
-                Promise.all([
-                    fetchMasterDataFromSpreadsheet(),
-                    fetchAttendanceDataFromSpreadsheet()
-                ]).then(() => {
-                    if (document.getElementById('ket-name').value) {
-                        handleKetNameChange();
+        function getLocalDateStr(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function startDigitalDateTime() {
+            function updateClock() {
+                const now = new Date();
+                const dateIso = getLocalDateStr(now);
+                const formattedDate = now.toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                });
+
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const time24Str = `${hours}:${minutes}:${seconds}`;
+
+                const formDateEl = document.getElementById('form-date');
+                const ketDateEl = document.getElementById('ket-date');
+
+                if (formDateEl) formDateEl.value = dateIso;
+                if (ketDateEl && ketDateEl.value !== dateIso) {
+                    ketDateEl.value = dateIso;
+                    if (typeof window.updateAvailableJamKe === 'function') {
+                        window.updateAvailableJamKe();
+                    }
+                }
+
+                document.querySelectorAll('.digital-date-display').forEach(el => {
+                    el.innerText = formattedDate;
+                });
+                document.querySelectorAll('.digital-clock-display').forEach(el => {
+                    el.innerText = time24Str;
+                });
+            }
+
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        const todayStr = getLocalDateStr(new Date());
+        const currentMonthStr = todayStr.substring(0, 7); // YYYY-MM
+        
+        document.getElementById('form-date').value = todayStr;
+        document.getElementById('ket-date').value = todayStr;
+        document.getElementById('monitor-date').value = todayStr;
+        document.getElementById('monitor-month').value = currentMonthStr;
+        document.getElementById('print-date').innerText = formatTanggal(todayStr);
+
+        startDigitalDateTime();
+
+        document.getElementById('monitor-date').addEventListener('change', (e) => {
+            document.getElementById('print-date').innerText = formatTanggal(e.target.value);
+            fetchAttendanceDataFromSpreadsheet().then(() => renderMonitorTable());
+        });
+        
+        document.getElementById('monitor-month').addEventListener('change', (e) => {
+            const dateObj = new Date(e.target.value + "-01");
+            const options = { month: 'long', year: 'numeric' };
+            document.getElementById('print-date').innerText = "Bulan " + dateObj.toLocaleDateString('id-ID', options);
+            fetchAttendanceDataFromSpreadsheet().then(() => renderMonitorTable());
+        });
+
+        function formatTanggal(dateString) {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('id-ID', options);
+        }
+
+        window.toggleMonitorMode = function() {
+            const mode = document.getElementById('monitor-mode').value;
+            if (mode === 'harian') {
+                document.getElementById('monitor-date').classList.remove('hidden');
+                document.getElementById('monitor-month').classList.add('hidden');
+                document.getElementById('thead-harian').classList.remove('hidden');
+                document.getElementById('thead-bulanan').classList.add('hidden');
+                document.getElementById('print-date').innerText = formatTanggal(document.getElementById('monitor-date').value);
+            } else {
+                document.getElementById('monitor-date').classList.add('hidden');
+                document.getElementById('monitor-month').classList.remove('hidden');
+                document.getElementById('thead-harian').classList.add('hidden');
+                document.getElementById('thead-bulanan').classList.remove('hidden');
+                
+                const dateObj = new Date(document.getElementById('monitor-month').value + "-01");
+                const options = { month: 'long', year: 'numeric' };
+                document.getElementById('print-date').innerText = "Bulan " + dateObj.toLocaleDateString('id-ID', options);
+            }
+            fetchAttendanceDataFromSpreadsheet().then(() => renderMonitorTable());
+        };
+
+        window.downloadPDF = function() {
+            const element = document.getElementById('pdf-content');
+            const header = document.getElementById('pdf-header');
+            
+            // Tampilkan header khusus untuk PDF
+            header.classList.remove('hidden');
+            
+            const mode = document.getElementById('monitor-mode').value;
+            const dateVal = mode === 'harian' ? document.getElementById('monitor-date').value : document.getElementById('monitor-month').value;
+            const filename = `Laporan_Absensi_${mode}_${dateVal}.pdf`;
+
+            const opt = {
+                margin:       [0.5, 0.5],
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'in', format: 'legal', orientation: mode === 'harian' ? 'landscape' : 'portrait' }
+            };
+
+            // Nonaktifkan tombol sementara saat memproses PDF
+            const btn = document.querySelector('button[onclick="downloadPDF()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "Memproses...";
+            btn.disabled = true;
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Kembalikan UI ke semula
+                header.classList.add('hidden');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        };
+
+        window.downloadExcel = function() {
+            const mode = document.getElementById('monitor-mode').value;
+            const dateVal = mode === 'harian' ? document.getElementById('monitor-date').value : document.getElementById('monitor-month').value;
+            let csvContent = "";
+
+            if (mode === 'harian') {
+                csvContent += "No,Nama,Mata Pelajaran,Keterangan Kelas,Jam Masuk,Kelas,Jam Ke-,Tercapai (Y/T),Jam Pulang,Status Harian\r\n";
+                const todaysData = allAttendanceData.filter(d => d.date === dateVal);
+                const dataMap = {};
+                todaysData.forEach(d => dataMap[d.name] = d);
+
+                // Gabungkan daftar guru dari master dan dari data absensi yang sudah ada
+                let allNames = [...daftarGuru];
+                todaysData.forEach(d => { if (!allNames.includes(d.name)) allNames.push(d.name); });
+
+                allNames.forEach((nama, index) => {
+                    const record = dataMap[nama] || {};
+                    const jamMasuk = record.jamMasuk || '-';
+                    const jamPulang = record.jamPulang || '-';
+                    const statusHarian = record.statusHarian || '-';
+
+                    let sessions = record.sessions || [];
+                    if (record.mapel && sessions.length === 0) {
+                        sessions = [{ mapel: record.mapel, kelas: record.kelas, jamKe: record.jamKe, tercapai: record.tercapai, kehadiranKelas: record.kehadiranKelas }];
+                    }
+
+                    if (sessions.length > 0) {
+                        sessions.forEach((s, sIndex) => {
+                            const ketKelas = s.kehadiranKelas && s.kehadiranKelas !== 'Hadir' ? s.kehadiranKelas : '-';
+                            csvContent += `"${index + 1}","${nama}","${s.mapel || '-'}","${ketKelas}","${jamMasuk}","${s.kelas || '-'}","${s.jamKe || '-'}","${s.tercapai || '-'}","${jamPulang}","${statusHarian}"\r\n`;
+                        });
+                    } else {
+                        csvContent += `"${index + 1}","${nama}","-","-","${jamMasuk}","-","-","-","${jamPulang}","${statusHarian}"\r\n`;
                     }
                 });
+            } else {
+                csvContent += "No,Nama,Jml Hadir,Jml Izin,Jml Sakit,Tugas Luar,Total Kelas Diajar\r\n";
+                const monthData = allAttendanceData.filter(d => d.date.startsWith(dateVal));
+                
+                let allNames = [...daftarGuru];
+                monthData.forEach(d => { if (!allNames.includes(d.name)) allNames.push(d.name); });
+
+                allNames.forEach((nama, index) => {
+                    const teacherRecords = monthData.filter(d => d.name === nama);
+                    let shHadir = 0, shIzin = 0, shSakit = 0;
+                    let klsHadir = 0, tugasLuar = 0;
+
+                    teacherRecords.forEach(r => {
+                        if (r.statusHarian === 'Hadir') shHadir++;
+                        if (r.statusHarian === 'Izin') shIzin++;
+                        if (r.statusHarian === 'Sakit') shSakit++;
+                        
+                        if (r.kehadiranKelas && !r.sessions) {
+                            if (r.kehadiranKelas === 'Hadir') klsHadir++;
+                            if (r.kehadiranKelas === 'Tidak Hadir Ada Tugas') tugasLuar++;
+                        }
+                        if (r.sessions) {
+                            r.sessions.forEach(s => {
+                                if (s.kehadiranKelas === 'Hadir') klsHadir++;
+                                if (s.kehadiranKelas === 'Tidak Hadir Ada Tugas') tugasLuar++;
+                            });
+                        }
+                    });
+                    csvContent += `"${index + 1}","${nama}","${shHadir}","${shIzin}","${shSakit}","${tugasLuar}","${klsHadir}"\r\n`;
+                });
+            }
+
+            // Tambahkan BOM agar karakter terbaca baik di Excel
+            const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Laporan_Absensi_${mode}_${dateVal}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // === Firebase Setup ===
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'absensi-smpn1-situraja';
+        const hasValidFirebase = typeof __firebase_config !== 'undefined' && __firebase_config;
+        const firebaseConfig = hasValidFirebase ? JSON.parse(__firebase_config) : null;
+        
+        // --- KONFIGURASI GOOGLE SHEETS APP SCRIPT ---
+        const SPREADSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzTqEKkkuItddmdnMtGwefjbknmgG8ZYBLz2jGLuTGPWnXhqif01kGIaGzKMFyEg5keQw/exec"; 
+        // --------------------------------------------
+
+        let app = null;
+        let auth = null;
+        let db = null;
+
+        if (hasValidFirebase) {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        }
+
+        let currentUser = null;
+        let allAttendanceData = [];
+
+        const COLLECTION_PATH = `artifacts/${appId}/public/data/absensi`;
+        const MASTER_PATH = `artifacts/${appId}/public/data/master`;
+
+        // Initialize Authentication
+        async function initAuth() {
+            // Jika tidak ada konfigurasi Firebase asli, langsung gunakan jalur Google Sheets tanpa memicu timeout Firestore
+            if (!hasValidFirebase) {
+                document.getElementById('auth-status').innerText = "Mode Google Sheets";
+                document.getElementById('auth-status').classList.replace('bg-blue-700', 'bg-yellow-600');
+                
+                await fetchMasterDataFromSpreadsheet();
+                await fetchAttendanceDataFromSpreadsheet();
+                
+                showView('ketuntasan-view');
+                return;
+            }
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        currentUser = user;
+                        document.getElementById('auth-status').innerText = "Online";
+                        document.getElementById('auth-status').classList.replace('bg-blue-700', 'bg-green-600');
+                        showView('ketuntasan-view');
+                        startRealtimeListener();
+                        startMasterDataListener();
+                    }
+                });
+            } catch (error) {
+                console.error("Auth error:", error);
+                
+                // JALUR ALTERNATIF JIKA DI-HOSTING DI VERCEL / GITHUB
+                document.getElementById('auth-status').innerText = "Mode Google Sheets";
+                document.getElementById('auth-status').classList.replace('bg-blue-700', 'bg-yellow-600');
+                
+                // Menarik Master Data & Rekap Data Absensi langsung dari Spreadsheet
+                await fetchMasterDataFromSpreadsheet();
+                await fetchAttendanceDataFromSpreadsheet();
+                
+                showView('ketuntasan-view');
             }
         }
 
@@ -530,7 +1731,6 @@
                 document.getElementById('form-durasi-jam').value = "";
                 document.getElementById('form-jam-ke').value = "";
                 document.getElementById('auto-jam-preview').classList.add('hidden');
-                document.getElementById('auto-schedule-badge').classList.add('hidden');
                 document.getElementById('form-tercapai').value = "Y";
                 document.getElementById('ket-name').value = "";
                 
