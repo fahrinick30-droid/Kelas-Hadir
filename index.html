@@ -310,7 +310,7 @@
                                 <p class="text-[11px] text-green-600">Siap disimpan bersama data ketuntasan</p>
                             </div>
                         </div>
-                        <button type="button" onclick="handleHadirClick('kelas')" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline px-2 py-1">Foto Ulang</button>
+                        <button type="button" onclick="retakePhotoKelas()" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline px-2 py-1">Foto Ulang</button>
                     </div>
                 </div>
                 
@@ -627,8 +627,21 @@
             openCamera(target);
         };
 
+        window.retakePhotoKelas = function() {
+            const val = document.getElementById('form-kehadiran-kelas').value;
+            if (val === 'Tidak Hadir Ada Tugas') {
+                openCamera('tugas');
+            } else {
+                openCamera('kelas');
+            }
+        };
+
         window.handleKehadiranKelasClick = async function(val, btnId) {
             if (!isKetuntasanFieldsComplete()) return;
+            if (val === 'Tidak Hadir Ada Tugas') {
+                openCamera('tugas');
+                return; // Proses simpan akan dilanjutkan setelah foto berhasil diambil
+            }
             setKehadiranKelas(val, btnId);
             await saveKetuntasanData();
         };
@@ -1048,8 +1061,7 @@
                 btnHadirKelas.innerText = "Hadir ✓";
             } else if (val === 'Tidak Hadir Ada Tugas') {
                 document.getElementById('btn-tugas').className = "bg-yellow-500 text-white border-2 border-yellow-500 rounded-lg p-2 font-semibold transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight";
-                document.getElementById('form-photo-kelas').value = ''; // Reset foto
-                document.getElementById('photo-indicator-kelas').classList.add('hidden');
+                // Jangan mereset foto di sini agar gambar tugas tetap tersimpan
             } else if (val === 'Tidak Hadir') {
                 document.getElementById('btn-alpa').className = "bg-red-600 text-white border-2 border-red-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
                 document.getElementById('form-photo-kelas').value = ''; // Reset foto
@@ -1138,7 +1150,20 @@
             const counterDot = document.getElementById('person-counter-dot');
 
             modal.classList.remove('hidden');
-            statusText.innerText = "Meminta akses kamera & menyiapkan AI...";
+            
+            if (target === 'tugas') {
+                statusText.innerText = "Menyiapkan kamera untuk foto tugas...";
+                btnCapture.innerHTML = `
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span>Ambil Foto Tugas</span>
+                `;
+            } else {
+                statusText.innerText = "Meminta akses kamera & menyiapkan AI...";
+                btnCapture.innerHTML = `
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span>Ambil Foto Selfie dan Siswa</span>
+                `;
+            }
             statusText.className = "text-yellow-400 text-sm font-medium mb-4 text-center";
             counterText.innerText = "Menyiapkan AI...";
             counterDot.className = "w-3 h-3 rounded-full bg-yellow-400 animate-ping";
@@ -1153,9 +1178,12 @@
                     aiModel = await cocoSsd.load();
                 }
 
-                // Prioritaskan kamera depan (selfie)
+                // Prioritaskan kamera depan (selfie), kecuali untuk Pindai Tugas (utamakan kamera belakang)
+                let facingMode = 'user';
+                if (target === 'tugas') facingMode = 'environment';
+
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                    video: { facingMode: facingMode, width: { ideal: 640 }, height: { ideal: 480 } }
                 });
                 video.srcObject = stream;
                 
@@ -1183,6 +1211,21 @@
 
             detectionInterval = setInterval(async () => {
                 if (!video.srcObject || video.paused || video.ended || !aiModel) return;
+
+                // Jika target adalah dokumen/tugas, matikan AI orang & langsung izinkan jepret
+                if (currentPhotoTarget === 'tugas') {
+                    counterText.innerText = `Memindai Tulisan Tugas`;
+                    counterDot.className = "w-3 h-3 rounded-full bg-blue-500 animate-none";
+                    statusText.innerText = "Arahkan kamera ke Surat Tugas / Buku dan tekan tombol.";
+                    statusText.className = "text-blue-400 text-sm font-bold mb-4 text-center";
+                    
+                    scanner.classList.add('hidden');
+                    guideline.className = "absolute inset-0 border-4 border-blue-500 pointer-events-none m-8 rounded-xl transition-all duration-500 z-10 animate-pulse-glow";
+                    
+                    btnCapture.disabled = false;
+                    btnCapture.className = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-transform transform active:scale-95 flex items-center space-x-2 cursor-pointer";
+                    return; 
+                }
 
                 try {
                     const predictions = await aiModel.detect(video);
@@ -1249,8 +1292,8 @@
             statusText.innerText = "Memverifikasi & menyimpan foto...";
             statusText.className = "text-yellow-400 text-sm font-medium mb-4 text-center";
 
-            // Verifikasi terakhir tepat sebelum gambar dijepret
-            if (aiModel) {
+            // Verifikasi terakhir tepat sebelum gambar dijepret (Hanya untuk kelas/harian)
+            if (aiModel && currentPhotoTarget !== 'tugas') {
                 try {
                     const predictions = await aiModel.detect(video);
                     const count = predictions.filter(p => p.class === 'person' && p.score > 0.45).length;
@@ -1292,11 +1335,16 @@
                     hideProcessLoader();
                     showDoneOverlay();
                 }, 1200);
-            } else if (currentPhotoTarget === 'kelas') {
+            } else if (currentPhotoTarget === 'kelas' || currentPhotoTarget === 'tugas') {
                 document.getElementById('form-photo-kelas').value = base64Photo;
                 document.getElementById('thumb-photo-kelas').src = base64Photo;
                 document.getElementById('photo-indicator-kelas').classList.remove('hidden');
-                setKehadiranKelas('Hadir', 'btn-hadir');
+                
+                if (currentPhotoTarget === 'kelas') {
+                    setKehadiranKelas('Hadir', 'btn-hadir');
+                } else {
+                    setKehadiranKelas('Tidak Hadir Ada Tugas', 'btn-tugas');
+                }
                 
                 // saveKetuntasanData akan mengeksekusi network dan menyembunyikan loader saat selesai
                 await saveKetuntasanData();
@@ -2102,6 +2150,11 @@
                 }
                 if (!photoData) {
                     showModal("Peringatan Foto", "Bukti foto dengan siswa belum terekam. Silakan klik tombol 'Hadir' kembali untuk mengambil foto.");
+                    return;
+                }
+            } else if (kehadiranKelas === 'Tidak Hadir Ada Tugas') {
+                if (!photoData) {
+                    showModal("Peringatan Foto", "Bukti foto tugas belum terekam. Silakan klik tombol 'Tidak Hadir Ada Tugas' kembali untuk mengambil foto.");
                     return;
                 }
             }
