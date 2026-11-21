@@ -254,23 +254,22 @@
                     </select>
                 </div>
 
-                <div id="grid-kelas" class="grid grid-cols-1 gap-4 mb-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tingkat Kelas</label>
-                        <select id="form-tingkat" onchange="filterKelas()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                            <option value="">-- Pilih Tingkat --</option>
-                            <option value="7">Kelas 7</option>
-                            <option value="8">Kelas 8</option>
-                            <option value="9">Kelas 9</option>
-                            <option value="lainnya">Lainnya</option>
-                        </select>
-                    </div>
-                    <div id="container-kelas" class="hidden">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Rombel / Kelas</label>
-                        <select id="form-kelas" required disabled class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
-                            <option value="">-- Pilih Kelas --</option>
-                        </select>
-                    </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tingkat Kelas</label>
+                    <select id="form-tingkat" onchange="filterKelas()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">-- Pilih Tingkat --</option>
+                        <option value="7">Kelas 7</option>
+                        <option value="8">Kelas 8</option>
+                        <option value="9">Kelas 9</option>
+                        <option value="lainnya">Lainnya</option>
+                    </select>
+                </div>
+                
+                <div id="container-kelas" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Rombel / Kelas</label>
+                    <select id="form-kelas" required disabled class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
+                        <option value="">-- Pilih Kelas --</option>
+                    </select>
                 </div>
 
                 <div class="hidden">
@@ -672,9 +671,26 @@
             return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
         }
 
+        // === Data Hari Libur Nasional (Statis Format MM-DD) ===
+        const daftarLiburNasional = {
+            "01-01": "Tahun Baru",
+            "05-01": "Hari Buruh",
+            "06-01": "Lahir Pancasila",
+            "08-17": "HUT RI",
+            "12-25": "Natal"
+            // Silakan tambahkan daftar libur lain sesuai kalender pendidikan di sini
+        };
+
         // Peta Jadwal Pelajaran (40 Menit per Jam, menyesuaikan hari)
         function getScheduleMapping(dateObj) {
             const dayOfWeek = dateObj.getDay();
+            const monthDay = String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
+            
+            // Jika hari ini libur nasional atau akhir pekan (Sabtu/Minggu), kembalikan jadwal kosong
+            if (daftarLiburNasional[monthDay] || dayOfWeek === 0 || dayOfWeek === 6) {
+                return {};
+            }
+
             let periods = {};
             let currentMin = 0;
 
@@ -715,20 +731,26 @@
             const maxPeriods = Object.keys(scheduleMap).length;
             
             let currentPeriod = "-";
+            const monthDay = String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            const dayOfWeek = now.getDay();
             
-            if (currentMinutes < scheduleMap[1].start) {
-                currentPeriod = "Belum Masuk";
-            } else if (currentMinutes >= scheduleMap[maxPeriods].end) {
-                currentPeriod = "Selesai";
-            } else {
-                for (let i = 1; i <= maxPeriods; i++) {
-                    if (currentMinutes >= scheduleMap[i].start && currentMinutes < scheduleMap[i].end) {
-                        currentPeriod = `Jam Ke-${i}`;
-                        break;
-                    }
-                    if (i < maxPeriods && currentMinutes >= scheduleMap[i].end && currentMinutes < scheduleMap[i+1].start) {
-                        currentPeriod = "Istirahat";
-                        break;
+            if (daftarLiburNasional[monthDay] || dayOfWeek === 0 || dayOfWeek === 6) {
+                currentPeriod = "Libur";
+            } else if (maxPeriods > 0) {
+                if (currentMinutes < scheduleMap[1].start) {
+                    currentPeriod = "Belum Masuk";
+                } else if (currentMinutes >= scheduleMap[maxPeriods].end) {
+                    currentPeriod = "Selesai";
+                } else {
+                    for (let i = 1; i <= maxPeriods; i++) {
+                        if (currentMinutes >= scheduleMap[i].start && currentMinutes < scheduleMap[i].end) {
+                            currentPeriod = `Jam Ke-${i}`;
+                            break;
+                        }
+                        if (i < maxPeriods && currentMinutes >= scheduleMap[i].end && currentMinutes < scheduleMap[i+1].start) {
+                            currentPeriod = "Istirahat";
+                            break;
+                        }
                     }
                 }
             }
@@ -938,6 +960,12 @@
             
             const scheduleMap = getScheduleMapping(now);
             const maxPeriods = Object.keys(scheduleMap).length;
+
+            if (maxPeriods === 0) {
+                jamKeInput.value = "";
+                if (previewBox) previewBox.classList.add('hidden');
+                return;
+            }
 
             // Tentukan jam ke- awal berdasarkan waktu sekarang
             let startPeriod = 1;
