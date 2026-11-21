@@ -247,14 +247,14 @@
                     </div>
                 </div>
 
-                <div>
+                <div class="hidden">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Mata Pelajaran</label>
-                    <select id="form-mapel" onchange="updateAvailableJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <select id="form-mapel" onchange="updateAvailableJamKe()" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                         <option value="">-- Pilih Mata Pelajaran --</option>
                     </select>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 mb-4">
+                <div id="grid-kelas" class="grid grid-cols-1 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Tingkat Kelas</label>
                         <select id="form-tingkat" onchange="filterKelas()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
@@ -265,17 +265,17 @@
                             <option value="lainnya">Lainnya</option>
                         </select>
                     </div>
-                    <div>
+                    <div id="container-kelas" class="hidden">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Rombel / Kelas</label>
-                        <select id="form-kelas" required disabled class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors">
+                        <select id="form-kelas" required disabled class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
                             <option value="">-- Pilih Kelas --</option>
                         </select>
                     </div>
                 </div>
 
-                <div>
+                <div class="hidden">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Jam Pelajaran (Otomatis Sesuai Real-Time)</label>
-                    <select id="form-durasi-jam" onchange="calculateAutoJamKe()" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <select id="form-durasi-jam" onchange="calculateAutoJamKe()" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                         <option value="">-- Pilih Jumlah Jam --</option>
                         <option value="1">1 Jam Pelajaran (40 Menit)</option>
                         <option value="2">2 Jam Pelajaran (80 Menit)</option>
@@ -611,14 +611,11 @@
         function isKetuntasanFieldsComplete() {
             const date = document.getElementById('ket-date').value;
             const name = document.getElementById('ket-name').value;
-            const mapel = document.getElementById('form-mapel').value;
             const tingkat = document.getElementById('form-tingkat').value;
             const kelas = document.getElementById('form-kelas').value;
-            const durasiJam = document.getElementById('form-durasi-jam').value;
-            const jamKe = document.getElementById('form-jam-ke').value;
 
-            if (!date || !name || !mapel || !tingkat || !kelas || !durasiJam || !jamKe) {
-                showModal("Data Belum Lengkap", "Silakan lengkapi semua data di atas (Tanggal, Nama, Mata Pelajaran, Tingkat, Kelas, dan Jumlah Jam Pelajaran) terlebih dahulu sebelum memilih status kehadiran.");
+            if (!date || !name || !tingkat || !kelas) {
+                showModal("Data Belum Lengkap", "Silakan lengkapi data (Nama, Tingkat, dan Kelas) terlebih dahulu sebelum memilih status kehadiran.");
                 return false;
             }
             return true;
@@ -1035,27 +1032,35 @@
         window.filterKelas = function() {
             const tingkat = document.getElementById('form-tingkat').value;
             const kelasSelect = document.getElementById('form-kelas');
+            const kelasContainer = document.getElementById('container-kelas');
+            const gridKelas = document.getElementById('grid-kelas');
             
             if (!kelasSelect) return;
             
             kelasSelect.innerHTML = '<option value="">-- Pilih Kelas --</option>';
             
-            // Kunci (disable) pilihan kelas jika tingkat belum dipilih
+            // Sembunyikan pilihan kelas jika tingkat belum dipilih
             if (!tingkat) {
+                if (kelasContainer) kelasContainer.classList.add('hidden');
+                if (gridKelas) gridKelas.className = "grid grid-cols-1 gap-4 mb-4";
                 kelasSelect.disabled = true;
                 return;
             }
             
+            // Tampilkan pilihan kelas setelah tingkat dipilih
+            if (kelasContainer) kelasContainer.classList.remove('hidden');
+            if (gridKelas) gridKelas.className = "grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4";
             kelasSelect.disabled = false;
             
             let filteredKelas = [];
-            if (tingkat === '7') {
-                filteredKelas = daftarKelas.filter(k => k.startsWith('7'));
-            } else if (tingkat === '8') {
-                filteredKelas = daftarKelas.filter(k => k.startsWith('8'));
-            } else if (tingkat === '9') {
-                filteredKelas = daftarKelas.filter(k => k.startsWith('9'));
-            } else if (tingkat === 'lainnya') {
+            
+            // Jika memilih tingkat 7, 8, atau 9, otomatis buatkan kelas A sampai J
+            if (['7', '8', '9'].includes(tingkat)) {
+                const hurufKelas = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+                filteredKelas = hurufKelas.map(huruf => tingkat + huruf);
+            } 
+            // Jika memilih "lainnya", ambil dari daftar kelas yang dibuat secara manual di Admin
+            else if (tingkat === 'lainnya') {
                 filteredKelas = daftarKelas.filter(k => !k.startsWith('7') && !k.startsWith('8') && !k.startsWith('9'));
             }
             
@@ -2054,9 +2059,9 @@
             const kehadiranKelas = document.getElementById('form-kehadiran-kelas').value;
             const photoData = document.getElementById('form-photo-kelas').value;
 
-            // Validasi: Pastikan semua data terisi
-            if (!date || !name || !mapel || !kelas || !jamKe || !tercapai || !kehadiranKelas) {
-                showModal("Peringatan", "Mohon lengkapi semua data (Mata Pelajaran, Kehadiran di Kelas, Kelas, Jam Ke-, dan Ketercapaian) sebelum menyimpan.");
+            // Validasi: Pastikan data utama terisi (mapel & jamKe diabaikan validasinya karena disembunyikan)
+            if (!date || !name || !kelas || !tercapai || !kehadiranKelas) {
+                showModal("Peringatan", "Mohon lengkapi semua data (Nama, Kelas, dan Kehadiran di Kelas) sebelum menyimpan.");
                 return;
             }
 
