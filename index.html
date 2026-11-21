@@ -770,29 +770,24 @@
 
             if (candidateSessions.length === 0) return null;
 
-            // Tentukan jam ke- berapakah saat ini berdasarkan real-time
             const scheduleMap = getScheduleMapping(now);
-            const maxPeriods = Object.keys(scheduleMap).length;
-            let currentPeriod = 1;
-            
-            for (let i = 1; i <= maxPeriods; i++) {
-                if (currentMinutes <= scheduleMap[i].end) {
-                    currentPeriod = i;
-                    if (currentMinutes < scheduleMap[1].start) currentPeriod = 1;
-                    break;
-                }
-                if (i === maxPeriods) currentPeriod = i;
-            }
 
-            // Cari sesi di mana currentPeriod (waktu sekarang) berada persis di dalam rentang riwayat tersebut
+            // Cari sesi di mana waktu saat ini (currentMinutes) 
+            // BENAR-BENAR berada di dalam rentang menit riwayat tersebut (Strict Matching)
             for (const s of candidateSessions) {
                 const periodMatch = String(s.jamKe).match(/^(\d+)(?:-(\d+))?/);
                 if (periodMatch) {
                     const pStart = parseInt(periodMatch[1], 10);
                     const pEnd = periodMatch[2] ? parseInt(periodMatch[2], 10) : pStart;
-                    // Jika jam ke- saat ini masuk dalam rentang riwayat tersebut (misal riwayat 3-4, dan sekarang jam 3, maka cocok)
-                    if (currentPeriod >= pStart && currentPeriod <= pEnd) {
-                        return s;
+                    
+                    if (scheduleMap[pStart] && scheduleMap[pEnd]) {
+                        const startMin = scheduleMap[pStart].start;
+                        const endMin = scheduleMap[pEnd].end;
+                        
+                        // Harus persis di antara jam mulai dan jam selesai
+                        if (currentMinutes >= startMin && currentMinutes <= endMin) {
+                            return s;
+                        }
                     }
                 }
             }
