@@ -1432,14 +1432,17 @@
             ketNameSelect.innerHTML = '<option value="">-- Pilih Nama --</option>';
 
             daftarGuru.forEach((nama, index) => {
+                // Bersihkan angka dan titik di awal nama jika sudah ada di Spreadsheet agar tidak double (misal "1. Nama" -> "Nama")
+                const cleanName = nama.replace(/^\d+\.\s*/, '');
+
                 const opt1 = document.createElement('option');
                 opt1.value = nama;
-                opt1.text = `${index + 1}. ${nama}`;
+                opt1.text = `${index + 1}. ${cleanName}`;
                 formNameSelect.appendChild(opt1);
                 
                 const opt2 = document.createElement('option');
                 opt2.value = nama;
-                opt2.text = `${index + 1}. ${nama}`;
+                opt2.text = `${index + 1}. ${cleanName}`;
                 ketNameSelect.appendChild(opt2);
             });
 
