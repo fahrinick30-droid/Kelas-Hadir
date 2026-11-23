@@ -853,7 +853,7 @@
             if (dayOfWeek === 1) { 
                 // SENIN: Mulai 07:40
                 currentMin = 7 * 60 + 40; 
-                for (let i = 1; i <= 9; i++) {
+                for (let i = 1; i <= 8; i++) { // SENIN SAMPAI JAM KE-8
                     if (i === 3) currentMin += 30; // Istirahat 1: 09:00-09:30 (Setelah jam ke-2)
                     if (i === 7) currentMin += 30; // Istirahat 2: 12:10-12:40 (Setelah jam ke-6)
                     periods[i] = { start: currentMin, end: currentMin + 40 };
@@ -862,7 +862,7 @@
             } else if (dayOfWeek === 5) { 
                 // JUMAT: Mulai 07:10
                 currentMin = 7 * 60 + 10; 
-                for (let i = 1; i <= 6; i++) {
+                for (let i = 1; i <= 4; i++) { // JUMAT SAMPAI JAM KE-4
                     if (i === 3) currentMin += 30; // Istirahat: 08:30-09:00 (Setelah jam ke-2)
                     periods[i] = { start: currentMin, end: currentMin + 40 };
                     currentMin += 40;
@@ -870,7 +870,7 @@
             } else { 
                 // SELASA - KAMIS (dan fallback akhir pekan): Mulai 07:00
                 currentMin = 7 * 60; 
-                for (let i = 1; i <= 10; i++) {
+                for (let i = 1; i <= 9; i++) { // SELASA-KAMIS SAMPAI JAM KE-9
                     if (i === 5) currentMin += 30; // Istirahat 1: 09:40-10:10 (Setelah jam ke-4)
                     if (i === 8) currentMin += 30; // Istirahat 2: 12:10-12:40 (Setelah jam ke-7)
                     periods[i] = { start: currentMin, end: currentMin + 40 };
