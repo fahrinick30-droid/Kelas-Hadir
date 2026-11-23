@@ -293,10 +293,10 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Kehadiran Guru di Kelas</label>
                     <input type="hidden" id="form-kehadiran-kelas" value="">
                     <input type="hidden" id="form-photo-kelas" value="">
-                    <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="grid grid-cols-2 gap-2 text-center">
                         <button type="button" id="btn-hadir" onclick="handleHadirClick('kelas')" class="border-2 border-blue-500 text-blue-600 rounded-lg p-2 font-semibold hover:bg-blue-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full">Hadir</button>
                         <button type="button" id="btn-tugas" onclick="handleKehadiranKelasClick('Tidak Hadir Ada Tugas', 'btn-tugas')" class="border-2 border-yellow-500 text-yellow-600 rounded-lg p-2 font-semibold hover:bg-yellow-50 transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight">Tidak Hadir<br>Ada Tugas</button>
-                        <button type="button" id="btn-alpa" onclick="handleKehadiranKelasClick('Tidak Hadir', 'btn-alpa')" class="border-2 border-red-500 text-red-600 rounded-lg p-2 font-semibold hover:bg-red-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full">Tidak Hadir</button>
+                        <button type="button" id="btn-alpa" onclick="handleKehadiranKelasClick('Tidak Hadir', 'btn-alpa')" class="hidden border-2 border-red-500 text-red-600 rounded-lg p-2 font-semibold hover:bg-red-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full">Tidak Hadir</button>
                     </div>
                     <!-- Indikator Foto Terambil (Ketuntasan Kelas) -->
                     <div id="photo-indicator-kelas" class="hidden mt-3 p-2.5 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
@@ -746,6 +746,16 @@
         window.handleHadirClick = async function(target) {
             if (target === 'kelas') {
                 if (!isKetuntasanFieldsComplete()) return;
+                
+                const date = document.getElementById('ket-date').value;
+                const name = document.getElementById('ket-name').value;
+                const record = allAttendanceData.find(d => d.date === date && d.name === name);
+                
+                // Mencegah guru yang Izin/Sakit untuk klik Hadir di kelas
+                if (!record || record.statusHarian !== 'Hadir') {
+                    showModal("Tidak Diizinkan", "Anda tidak dapat klik 'Hadir' di kelas karena status harian Anda adalah Izin/Sakit atau belum Absen Masuk.");
+                    return;
+                }
             }
             
             // Validasi GPS Radius 100 Meter sebelum membuka kamera untuk kehadiran
@@ -1203,7 +1213,7 @@
             btnHadirKelas.className = "border-2 border-blue-500 text-blue-600 hover:bg-blue-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
             btnHadirKelas.innerText = "Hadir";
             document.getElementById('btn-tugas').className = "border-2 border-yellow-500 text-yellow-600 hover:bg-yellow-50 rounded-lg p-2 font-semibold transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight";
-            document.getElementById('btn-alpa').className = "border-2 border-red-500 text-red-600 hover:bg-red-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+            document.getElementById('btn-alpa').className = "hidden border-2 border-red-500 text-red-600 hover:bg-red-50 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
 
             // Active button highlight
             if (val === 'Hadir') {
@@ -1213,7 +1223,7 @@
                 document.getElementById('btn-tugas').className = "bg-yellow-500 text-white border-2 border-yellow-500 rounded-lg p-2 font-semibold transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight";
                 // Jangan mereset foto di sini agar gambar tugas tetap tersimpan
             } else if (val === 'Tidak Hadir') {
-                document.getElementById('btn-alpa').className = "bg-red-600 text-white border-2 border-red-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+                document.getElementById('btn-alpa').className = "hidden bg-red-600 text-white border-2 border-red-600 rounded-lg p-2 font-semibold transition-colors text-sm sm:text-base flex items-center justify-center h-full";
                 document.getElementById('form-photo-kelas').value = ''; // Reset foto
                 document.getElementById('photo-indicator-kelas').classList.add('hidden');
             }
@@ -2402,7 +2412,7 @@
                 btnHadirReset.className = "border-2 border-blue-500 text-blue-600 rounded-lg p-2 font-semibold hover:bg-blue-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full";
                 btnHadirReset.innerText = "Hadir";
                 document.getElementById('btn-tugas').className = "border-2 border-yellow-500 text-yellow-600 rounded-lg p-2 font-semibold hover:bg-yellow-50 transition-colors text-xs sm:text-sm flex items-center justify-center h-full leading-tight";
-                document.getElementById('btn-alpa').className = "border-2 border-red-500 text-red-600 rounded-lg p-2 font-semibold hover:bg-red-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full";
+                document.getElementById('btn-alpa').className = "hidden border-2 border-red-500 text-red-600 rounded-lg p-2 font-semibold hover:bg-red-50 transition-colors text-sm sm:text-base flex items-center justify-center h-full";
             } catch (error) {
                 console.error("Save Error:", error);
                 hideProcessLoader();
