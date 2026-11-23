@@ -839,7 +839,7 @@
         }
 
         // Menangani pemilihan nama guru dan pengisian jadwal otomatis
-        window.handleKetNameChange = function() {
+        window.handleKetNameChange = async function() {
             const name = document.getElementById('ket-name').value;
             const date = document.getElementById('ket-date').value;
             const badge = document.getElementById('auto-schedule-badge');
@@ -851,9 +851,26 @@
                 return;
             }
 
+            // Fungsi bantu pencocokan data yang lebih fleksibel (mengabaikan spasi ekstra & huruf besar/kecil)
+            const checkRecord = () => allAttendanceData.find(d => 
+                String(d.date || '').trim() === String(date).trim() && 
+                String(d.name || '').trim().toLowerCase() === String(name).trim().toLowerCase()
+            );
+
+            let record = checkRecord();
+
+            // Jika belum ketemu di memori lokal (misal baru diisi di HP lain atau baru refresh), tarik ulang dari Spreadsheet
+            if (!record || !String(record.statusHarian || '').trim()) {
+                await fetchAttendanceDataFromSpreadsheet();
+                record = checkRecord();
+            }
+
             // Validasi: Cek apakah guru sudah absen harian hari ini (Hadir, Izin, atau Sakit)
-            const record = allAttendanceData.find(d => d.date === date && d.name === name);
-            if (!record || !record.statusHarian) {
+            const statusStr = record && record.statusHarian ? String(record.statusHarian).trim().toLowerCase() : '';
+            const hasDailyAttendance = ['hadir', 'izin', 'sakit'].includes(statusStr) || 
+                                       Boolean(record && (record.jamMasuk || record.jamPulang));
+
+            if (!hasDailyAttendance) {
                 showModal("Akses Ditolak", "Anda belum mengisi Absensi Harian hari ini. Silakan isi form Absensi Harian terlebih dahulu (Masuk, Izin, atau Sakit).");
                 document.getElementById('ket-name').value = ""; // Reset pilihan nama
                 if (badge) badge.classList.add('hidden');
