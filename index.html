@@ -398,6 +398,29 @@
                     </div>
                 </div>
 
+                <!-- Pengaturan Lokasi Sekolah (Geofencing 100m) -->
+                <div class="border rounded-lg p-4 bg-gray-50 flex flex-col h-80">
+                    <h3 class="font-bold text-lg text-gray-800 mb-2 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Titik Koordinat Sekolah
+                    </h3>
+                    <p class="text-xs text-gray-500 mb-2">Absensi hanya diizinkan maksimal <strong>100 meter</strong> dari titik ini.</p>
+                    <div class="space-y-2 flex-grow flex flex-col justify-between">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-700">Latitude (Garis Lintang)</label>
+                            <input type="text" id="admin-school-lat" placeholder="-6.848800" class="w-full border rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-red-500 bg-white">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-700">Longitude (Garis Bujur)</label>
+                            <input type="text" id="admin-school-lng" placeholder="108.019500" class="w-full border rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-red-500 bg-white">
+                        </div>
+                        <div class="flex space-x-2 pt-1">
+                            <button type="button" onclick="useCurrentLocationAsSchool()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors">Ambil Lokasi Saat Ini</button>
+                            <button type="button" onclick="saveSchoolLocation()" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm">Simpan Koordinat</button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -586,6 +609,106 @@
         let aiModel = null; // Menyimpan model AI COCO-SSD
         let detectionInterval = null; // Loop pengecekan jumlah orang
 
+        // === Konfigurasi Geofencing (Koordinat SMPN 1 Situraja & Radius Maksimal 100m) ===
+        const DEFAULT_SCHOOL_LAT = -6.848800; // Titik pusat default area Situraja, Sumedang
+        const DEFAULT_SCHOOL_LNG = 108.019500;
+        const MAX_ALLOWED_RADIUS_METERS = 100;
+
+        function getSchoolCoordinates() {
+            const savedLat = parseFloat(localStorage.getItem('schoolLat'));
+            const savedLng = parseFloat(localStorage.getItem('schoolLng'));
+            return {
+                lat: !isNaN(savedLat) ? savedLat : DEFAULT_SCHOOL_LAT,
+                lng: !isNaN(savedLng) ? savedLng : DEFAULT_SCHOOL_LNG
+            };
+        }
+
+        // Rumus Haversine untuk menghitung jarak akurat dalam satuan meter antara 2 titik koordinat
+        function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Radius bumi dalam meter
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return Math.round(R * c); // Jarak dalam meter
+        }
+
+        // Fungsi pengecekan GPS pengguna terhadap radius 100m sekolah
+        function verifySchoolRadius() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject("Browser atau perangkat Anda tidak mendukung fitur GPS/Lokasi.");
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
+                        const school = getSchoolCoordinates();
+                        const distance = calculateDistanceMeters(userLat, userLng, school.lat, school.lng);
+
+                        if (distance <= MAX_ALLOWED_RADIUS_METERS) {
+                            resolve({ allowed: true, distance, lat: userLat, lng: userLng });
+                        } else {
+                            reject(`Anda berada di luar area sekolah! Jarak Anda saat ini sekitar ${distance} meter dari SMPN 1 Situraja (Maksimal ${MAX_ALLOWED_RADIUS_METERS} meter).`);
+                        }
+                    },
+                    (error) => {
+                        let errMsg = "Gagal mendapatkan lokasi GPS. ";
+                        if (error.code === error.PERMISSION_DENIED) {
+                            errMsg += "Mohon izinkan akses Lokasi (GPS) pada browser/HP Anda.";
+                        } else if (error.code === error.POSITION_UNAVAILABLE) {
+                            errMsg += "Sinyal GPS tidak tersedia. Pastikan GPS/Lokasi perangkat aktif.";
+                        } else if (error.code === error.TIMEOUT) {
+                            errMsg += "Waktu pencarian sinyal GPS habis. Coba lagi di tempat terbuka.";
+                        }
+                        reject(errMsg);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            });
+        }
+
+        window.useCurrentLocationAsSchool = function() {
+            if (!navigator.geolocation) {
+                showModal("Error", "Perangkat tidak mendukung GPS.");
+                return;
+            }
+            showProcessLoader();
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    hideProcessLoader();
+                    document.getElementById('admin-school-lat').value = pos.coords.latitude.toFixed(6);
+                    document.getElementById('admin-school-lng').value = pos.coords.longitude.toFixed(6);
+                    showModal("Lokasi Ditemukan", "Koordinat GPS Anda saat ini telah dimasukkan ke kolom. Klik 'Simpan Koordinat' untuk menerapkan.");
+                },
+                (err) => {
+                    hideProcessLoader();
+                    showModal("Gagal", "Pastikan izin GPS aktif di browser Anda.");
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        };
+
+        window.saveSchoolLocation = function() {
+            const lat = parseFloat(document.getElementById('admin-school-lat').value);
+            const lng = parseFloat(document.getElementById('admin-school-lng').value);
+            if (isNaN(lat) || isNaN(lng)) {
+                showModal("Peringatan", "Masukkan format angka Latitude dan Longitude yang valid.");
+                return;
+            }
+            localStorage.setItem('schoolLat', lat);
+            localStorage.setItem('schoolLng', lng);
+            showModal("Sukses", `Titik koordinat sekolah berhasil disimpan (${lat}, ${lng}) dengan batas radius 100 meter.`);
+        };
+
         // Memuat model AI di latar belakang saat halaman dibuka
         async function loadPersonDetectionModel() {
             try {
@@ -620,11 +743,21 @@
             return true;
         }
 
-        window.handleHadirClick = function(target) {
+        window.handleHadirClick = async function(target) {
             if (target === 'kelas') {
                 if (!isKetuntasanFieldsComplete()) return;
             }
-            openCamera(target);
+            
+            // Validasi GPS Radius 100 Meter sebelum membuka kamera untuk kehadiran
+            showProcessLoader();
+            try {
+                await verifySchoolRadius();
+                hideProcessLoader();
+                openCamera(target);
+            } catch (locError) {
+                hideProcessLoader();
+                showModal("Di Luar Jangkauan Lokasi", locError);
+            }
         };
 
         window.retakePhotoKelas = function() {
@@ -2063,11 +2196,16 @@
             const submitBtn = e.target.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
-            submitBtn.innerText = "Menyimpan...";
+            submitBtn.innerText = "Memeriksa Lokasi & Menyimpan...";
 
             showProcessLoader();
 
             try {
+                // Validasi Radius 100m sebelum menyimpan absensi harian (kecuali Izin/Sakit dari rumah)
+                if (statusHarian === 'Hadir') {
+                    await verifySchoolRadius();
+                }
+
                 // Simpan ke Firebase (Hanya jika terhubung)
                 if (currentUser) {
                     const docId = `${date}_${name.replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -2134,7 +2272,8 @@
             } catch (error) {
                 console.error("Save Error:", error);
                 hideProcessLoader();
-                showModal("Gagal Menyimpan", "Terjadi kesalahan saat menyimpan data. Periksa koneksi internet.");
+                const errorMessage = typeof error === 'string' ? error : "Terjadi kesalahan saat menyimpan data atau memeriksa lokasi GPS.";
+                showModal("Gagal Menyimpan", errorMessage);
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
@@ -2427,6 +2566,13 @@
             if (savedLogo) {
                 if (typeof window.updateAllLogos === 'function') window.updateAllLogos(savedLogo);
             }
+
+            // Memuat Koordinat Sekolah ke Form Admin
+            const coords = getSchoolCoordinates();
+            const latInput = document.getElementById('admin-school-lat');
+            const lngInput = document.getElementById('admin-school-lng');
+            if (latInput) latInput.value = coords.lat;
+            if (lngInput) lngInput.value = coords.lng;
 
             initAuth();
         });
