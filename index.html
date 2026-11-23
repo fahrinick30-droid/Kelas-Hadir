@@ -851,10 +851,10 @@
                 return;
             }
 
-            // Validasi: Cek apakah guru sudah absen harian dengan status Hadir hari ini
+            // Validasi: Cek apakah guru sudah absen harian hari ini (Hadir, Izin, atau Sakit)
             const record = allAttendanceData.find(d => d.date === date && d.name === name);
-            if (!record || record.statusHarian !== 'Hadir') {
-                showModal("Akses Ditolak", "Anda tidak dapat mengisi Ketuntasan Mengajar karena Anda belum mengisi Absensi Harian (Masuk) atau berstatus Izin/Sakit hari ini.");
+            if (!record || !record.statusHarian) {
+                showModal("Akses Ditolak", "Anda belum mengisi Absensi Harian hari ini. Silakan isi form Absensi Harian terlebih dahulu (Masuk, Izin, atau Sakit).");
                 document.getElementById('ket-name').value = ""; // Reset pilihan nama
                 if (badge) badge.classList.add('hidden');
                 resetAutoSchedule(); // Bersihkan form lainnya
