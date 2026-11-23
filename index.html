@@ -40,7 +40,7 @@
             50% { top: 90%; }
         }
         .animate-scan {
-            animation: scan 2.5s ease-in-out infinite;
+            animation: scan 2.5s infinite ease-in-out;
         }
         @keyframes pulse-glow {
             0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
@@ -1250,8 +1250,8 @@
                     const people = predictions.filter(p => p.class === 'person' && p.score > 0.45);
                     const count = people.length;
 
-                    if (count >= 3) {
-                        // SYARAT TERPENUHI (> 2 orang / minimal 3 orang: Guru + 2 Siswa)
+                    if (count >= 1) {
+                        // SYARAT TERPENUHI (Minimal 1 orang)
                         counterText.innerText = `Terdeteksi: ${count} Orang`;
                         counterDot.className = "w-3 h-3 rounded-full bg-green-500";
                         statusText.innerText = "Siap! Silakan tekan tombol untuk mengambil foto.";
@@ -1264,12 +1264,10 @@
                         btnCapture.disabled = false;
                         btnCapture.className = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-transform transform active:scale-95 flex items-center space-x-2 cursor-pointer";
                     } else {
-                        // SYARAT TIDAK TERPENUHI (Hanya 1 atau 2 orang) -> Tombol Terkunci
-                        counterText.innerText = `Terdeteksi: ${count} Orang. Minimal ada 3 Orang.`;
+                        // SYARAT TIDAK TERPENUHI (Tidak ada orang) -> Tombol Terkunci
+                        counterText.innerText = `Terdeteksi: ${count} Orang. Wajah harus terlihat.`;
                         counterDot.className = "w-3 h-3 rounded-full bg-red-500 animate-pulse";
-                        statusText.innerText = count === 0 
-                            ? "Memindai Guru dan Siswa..." 
-                            : `Memindai Guru dan Siswa... Baru terdeteksi ${count} orang.`;
+                        statusText.innerText = "Memindai Wajah... Harap posisikan wajah di depan kamera.";
                         statusText.className = "text-red-400 text-sm font-medium mb-4 text-center";
                         
                         // Aktifkan kembali efek scanning AI
@@ -1314,8 +1312,8 @@
                 try {
                     const predictions = await aiModel.detect(video);
                     const count = predictions.filter(p => p.class === 'person' && p.score > 0.45).length;
-                    if (count < 3) {
-                        statusText.innerText = `Gagal! Saat dijepret hanya terdeteksi ${count} orang. Pastikan minimal 3 orang tetap di layar.`;
+                    if (count < 1) {
+                        statusText.innerText = `Gagal! Saat dijepret wajah tidak terdeteksi. Pastikan wajah tetap di layar.`;
                         statusText.className = "text-red-400 text-sm font-medium mb-4 text-center";
                         btnCapture.disabled = false;
                         return;
